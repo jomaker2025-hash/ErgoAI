@@ -1,0 +1,198 @@
+<!-- ============================================================
+     ErgoAI — Panel de Control (Dashboard)
+     Proyecto KESTA - GHS
+     ------------------------------------------------------------
+     Este archivo es el "esqueleto" de la página: solo contiene
+     la estructura (HTML). Todo el estilo visual (colores, fuentes,
+     espacios) vive en style.css.
+     ============================================================ -->
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <!-- Esto pinta la barra de estado de Android/Chrome del mismo negro que el fondo -->
+  <meta name="theme-color" content="#05050a" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <title>ErgoAI | Panel de Control</title>
+
+  <!-- Fuentes de Google Fonts: Sora (títulos) + Inter (texto) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ============================================================
+       PANTALLA DE CARGA (splash)
+       Se muestra un instante al abrir la página y luego se
+       desvanece sola, revelando el dashboard debajo.
+       ============================================================ -->
+  <div class="splash" id="splash">
+    <div class="logo-badge logo-badge--lg">
+      <span class="splash-ring"></span>
+      <!-- Guarda tu logo en la carpeta "assets" con el nombre logo-kesta.png -->
+      <img src="assets/logo-kesta.png" alt="Logo KESTA" class="logo-img"
+           onerror="this.classList.add('logo-img--hidden'); this.nextElementSibling.classList.add('logo-fallback--visible');" />
+      <div class="logo-fallback">K</div>
+    </div>
+    <p class="splash-text">Ergo<span>AI</span></p>
+    <p class="splash-sub">Cargando panel de control…</p>
+  </div>
+
+  <!-- Manchas de color difuminadas de fondo, puramente decorativas -->
+  <div class="bg-glow"></div>
+
+  <div class="app" id="app">
+
+    <!-- ======================= ENCABEZADO ======================= -->
+    <header class="topbar">
+      <div class="brand">
+        <div class="logo-badge">
+          <img src="assets/logo-kesta.png" alt="Logo KESTA" class="logo-img"
+               onerror="this.classList.add('logo-img--hidden'); this.nextElementSibling.classList.add('logo-fallback--visible');" />
+          <div class="logo-fallback">K</div>
+        </div>
+        <div class="brand-text">
+          <h1>Ergo<span>AI</span></h1>
+          <p>by KESTA · GHS</p>
+        </div>
+      </div>
+
+      <!-- Panel pequeño: estado de la cámara -->
+      <div class="camera-pill" id="cameraPill">
+        <span class="dot"></span>
+        <span class="pill-text">Cámara desconectada</span>
+      </div>
+    </header>
+
+    <!-- ======================= CONEXIÓN DE LA CÁMARA ======================= -->
+    <section class="camera-setup" id="cameraSetup">
+      <div class="camera-setup-text">
+        <p class="camera-setup-title">Conecta una cámara para detectar tu postura</p>
+        <p class="camera-setup-sub">Pruébalo ya mismo con la cámara de esta computadora o celular, o conecta tu ESP32-CAM por WiFi cuando esté lista.</p>
+      </div>
+
+      <!-- Elegir de dónde viene el video -->
+      <div class="camera-source-tabs" id="cameraSourceTabs">
+        <button type="button" class="source-tab active" data-source="webcam">💻 Cámara de este dispositivo</button>
+        <button type="button" class="source-tab" data-source="esp32">🔌 ESP32-CAM por WiFi</button>
+      </div>
+
+      <!-- Opción A: la cámara de esta computadora/celular (funciona ahora mismo) -->
+      <div class="camera-source-panel" id="webcamPanel">
+        <button type="button" class="btn-connect" id="webcamConnectBtn">Activar cámara</button>
+      </div>
+
+      <!-- Opción B: la ESP32-CAM por WiFi -->
+      <div class="camera-source-panel" id="esp32Panel" hidden>
+        <form class="camera-setup-form" id="cameraForm">
+          <input type="text" id="cameraIpInput" class="camera-ip-input" placeholder="192.168.1.50" inputmode="decimal" autocomplete="off" />
+          <button type="submit" class="btn-connect">Conectar</button>
+        </form>
+      </div>
+
+      <canvas class="pose-preview" id="poseCanvas" width="320" height="240" hidden></canvas>
+
+      <!-- Calibración: para que la IA aprenda TU postura buena, en vez de
+           adivinar con un número genérico -->
+      <div class="calibrate-row" id="calibrateRow" hidden>
+        <button type="button" class="btn-calibrate" id="calibrateBtn">🎯 Calibrar mi buena postura</button>
+        <span class="calibrate-status" id="calibrateStatus">Sin calibrar (usando referencia genérica)</span>
+      </div>
+
+      <button type="button" class="btn-change-ip" id="changeIpBtn" hidden>Desconectar / cambiar cámara</button>
+      <p class="camera-setup-error" id="cameraError" hidden></p>
+    </section>
+
+    <!-- Fuentes reales del video: se mantienen ocultas, solo alimentan a la IA.
+         Lo que sí ves es el "poseCanvas" de arriba, ya con el esqueleto dibujado. -->
+    <video id="webcamVideo" class="camera-stream-hidden" autoplay playsinline muted></video>
+    <img id="cameraStream" class="camera-stream-hidden" alt="" />
+
+    <!-- ======================= ESTADO EN VIVO ======================= -->
+    <main class="dashboard">
+      <!-- Tarjeta grande: estado en vivo de la postura -->
+      <section class="status-card" id="statusCard">
+        <span class="live-badge"><span class="live-dot"></span> EN VIVO</span>
+        <div class="status-icon">🧍</div>
+        <p class="status-label">Estado actual</p>
+        <h2 class="status-value" id="statusValue">Buena Postura</h2>
+        <p class="status-sub" id="statusSub">Sigue así, tu espalda te lo agradece</p>
+      </section>
+    </main>
+
+    <!-- ======================= MÓDULO DE RACHA (aparte) ======================= -->
+    <!-- Datos de ejemplo (todavía no conectados a la cámara real) -->
+    <section class="streak-module" id="streakModule">
+      <div class="streak-module-header">
+        <div>
+          <p class="module-eyebrow">Tu progreso</p>
+          <h2 class="module-title">Racha de Buena Postura</h2>
+        </div>
+        <span class="streak-flame">🔥 <strong id="streakDays">5</strong>&nbsp;días seguidos</span>
+      </div>
+
+      <div class="streak-body">
+        <!-- Medidor circular: % del día en buena postura -->
+        <div class="ring-wrap">
+          <svg class="progress-ring" viewBox="0 0 160 160">
+            <circle class="ring-bg" cx="80" cy="80" r="70" />
+            <circle class="ring-progress" id="ringProgress" cx="80" cy="80" r="70" />
+          </svg>
+          <div class="ring-center">
+            <span class="ring-value" id="ringValue">0%</span>
+            <span class="ring-label">Hoy</span>
+          </div>
+        </div>
+
+        <div class="streak-stats">
+          <!-- Semana: qué días tuvo buena postura -->
+          <div class="week-row" id="weekRow">
+            <div class="day-pill good" title="Lunes: buena postura"><span class="day-icon">✓</span>L</div>
+            <div class="day-pill good" title="Martes: buena postura"><span class="day-icon">✓</span>M</div>
+            <div class="day-pill good" title="Miércoles: buena postura"><span class="day-icon">✓</span>M</div>
+            <div class="day-pill good" title="Jueves: buena postura"><span class="day-icon">✓</span>J</div>
+            <div class="day-pill good" title="Viernes (hoy): buena postura"><span class="day-icon">✓</span>V</div>
+            <div class="day-pill empty" title="Sábado: sin datos todavía">S</div>
+            <div class="day-pill empty" title="Domingo: sin datos todavía">D</div>
+          </div>
+
+          <div class="streak-records">
+            <div class="record">
+              <span class="record-value" id="recordToday">0<small>min</small></span>
+              <span class="record-label">Mejor racha de hoy</span>
+            </div>
+            <div class="record">
+              <span class="record-value" id="recordHistoric">0<small>días</small></span>
+              <span class="record-label">Racha histórica</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <p>ErgoAI © 2026 — Proyecto Kesta GHS</p>
+      <p class="version-tag">Kesta 3 · cualquier dispositivo &amp; calibración</p>
+    </footer>
+  </div>
+
+  <!-- ============================================================
+       BOTÓN TEMPORAL DE VISTA PREVIA
+       Esto NO es la funcionalidad real (todavía no tenemos la
+       cámara conectada). Es solo para que puedas ver cómo se
+       vería la tarjeta cuando detecte una MALA postura.
+       Lo vamos a reemplazar más adelante por datos reales del ESP32-CAM.
+       ============================================================ -->
+  <button type="button" class="demo-toggle" id="demoToggle">👁️ Vista previa: Mala Postura</button>
+
+  <!-- Motor de IA para detectar postura (MediaPipe Pose, de Google) —
+       corre completo dentro de tu navegador, no manda tu video a ningún
+       servidor externo. Necesita internet para descargarse la primera vez. -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+  <script src="app.js"></script>
+</body>
+</html>
