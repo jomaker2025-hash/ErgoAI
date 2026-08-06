@@ -60,10 +60,31 @@
         </div>
       </div>
 
-      <!-- Panel pequeño: estado de la cámara -->
-      <div class="camera-pill" id="cameraPill">
-        <span class="dot"></span>
-        <span class="pill-text">Cámara desconectada</span>
+      <div class="header-actions">
+        <!-- Notificaciones: alertas de mala postura + recordatorios de pausas -->
+        <div class="settings-wrap">
+          <button type="button" class="icon-btn" id="settingsBtn" title="Notificaciones" aria-expanded="false">🔔</button>
+          <div class="settings-panel" id="settingsPanel" hidden>
+            <p class="settings-title">Notificaciones</p>
+            <label class="settings-option">
+              <input type="checkbox" id="alertsToggle" checked />
+              Alertas de mala postura
+            </label>
+            <label class="settings-option">
+              <input type="checkbox" id="breaksToggle" checked />
+              Recordatorios de pausas (cada 30 min)
+            </label>
+          </div>
+        </div>
+
+        <!-- Modo presentación: pantalla grande y limpia para la feria -->
+        <button type="button" class="icon-btn" id="presentationBtn" title="Modo presentación para la feria">🖥️</button>
+
+        <!-- Panel pequeño: estado de la cámara -->
+        <div class="camera-pill" id="cameraPill">
+          <span class="dot"></span>
+          <span class="pill-text">Cámara desconectada</span>
+        </div>
       </div>
     </header>
 
@@ -173,11 +194,36 @@
       </div>
     </section>
 
+    <!-- ======================= HISTORIAL (aparte) ======================= -->
+    <section class="history-module" id="historyModule">
+      <div class="history-header">
+        <div>
+          <p class="module-eyebrow">Historial</p>
+          <h2 class="module-title">Tus últimos 7 días</h2>
+        </div>
+        <button type="button" class="btn-table-toggle" id="historyTableToggle">Ver como tabla</button>
+      </div>
+
+      <div class="bar-chart" id="barChart" role="img" aria-label="Gráfica de barras: porcentaje de buena postura en los últimos 7 días"></div>
+
+      <!-- Vista alternativa en tabla, para que el historial no dependa solo del color -->
+      <table class="history-table" id="historyTable" hidden>
+        <caption>Porcentaje de buena postura por día (últimos 7 días)</caption>
+        <thead>
+          <tr><th scope="col">Día</th><th scope="col">% en buena postura</th></tr>
+        </thead>
+        <tbody id="historyTableBody"></tbody>
+      </table>
+    </section>
+
     <footer class="footer">
       <p>ErgoAI © 2026 — Proyecto Kesta GHS</p>
-      <p class="version-tag">Kesta 3 · cualquier dispositivo &amp; calibración</p>
+      <p class="version-tag">Kesta 4 · alertas, historial &amp; modo feria</p>
     </footer>
   </div>
+
+  <!-- Botón para salir del modo presentación (solo visible dentro de ese modo) -->
+  <button type="button" class="exit-presentation" id="exitPresentationBtn" hidden>✕ Salir del modo presentación</button>
 
   <!-- ============================================================
        BOTÓN TEMPORAL DE VISTA PREVIA

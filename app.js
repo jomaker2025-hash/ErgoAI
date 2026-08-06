@@ -57,6 +57,18 @@
   const recordHistoricEl = document.getElementById('recordHistoric');
   const weekRow = document.getElementById('weekRow');
 
+  // ---------- Kesta 4: notificaciones, historial, modo presentación ----------
+  const settingsBtn = document.getElementById('settingsBtn');
+  const settingsPanel = document.getElementById('settingsPanel');
+  const alertsToggle = document.getElementById('alertsToggle');
+  const breaksToggle = document.getElementById('breaksToggle');
+  const presentationBtn = document.getElementById('presentationBtn');
+  const exitPresentationBtn = document.getElementById('exitPresentationBtn');
+  const barChart = document.getElementById('barChart');
+  const historyTableToggle = document.getElementById('historyTableToggle');
+  const historyTable = document.getElementById('historyTable');
+  const historyTableBody = document.getElementById('historyTableBody');
+
   // ============================================================
   // Utilidades pequeñas y reutilizables
   // ============================================================
@@ -165,6 +177,7 @@
     }
     saveHistory(history);
     renderFromStorage();
+    trackBadPostureAlert(isGood);
   }
 
   // Un día cuenta como "bueno" si al menos el 50% del tiempo medido fue buena postura
@@ -211,6 +224,7 @@
     streakDaysEl.textContent = consecutiveGoodDays();
 
     renderWeekRow();
+    renderHistoryChart();
   }
 
   function renderWeekRow() {
@@ -551,4 +565,195 @@
     const dy = Math.abs(shoulder.y - ear.y);
     return Math.atan2(dx, dy) * (180 / Math.PI);
   }
+
+  // ============================================================
+  // 5. NOTIFICACIONES (Kesta 4): alertas de mala postura +
+  //    recordatorios de pausas activas. Ambas se pueden apagar
+  //    desde el botón 🔔 del encabezado.
+  // ============================================================
+  const ALERTS_KEY = 'ergoai_alerts_enabled';
+  const BREAKS_KEY = 'ergoai_breaks_enabled';
+  const BAD_POSTURE_ALERT_SECONDS = 20; // cuánto tiempo seguido en mala postura antes de avisar
+  const BAD_POSTURE_REPEAT_SECONDS = 30; // cada cuánto insiste, si sigues en mala postura
+  const BREAK_REMINDER_MS = 30 * 60 * 1000; // cada 30 minutos
+
+  let badPostureSeconds = 0;
+  let secondsSinceLastAlert = 0;
+
+  // Recuerda tu preferencia entre visitas
+  alertsToggle.checked = localStorage.getItem(ALERTS_KEY) !== 'false';
+  breaksToggle.checked = localStorage.getItem(BREAKS_KEY) !== 'false';
+  alertsToggle.addEventListener('change', () => {
+    localStorage.setItem(ALERTS_KEY, alertsToggle.checked);
+  });
+  breaksToggle.addEventListener('change', () => {
+    localStorage.setItem(BREAKS_KEY, breaksToggle.checked);
+  });
+
+  // Abrir/cerrar el panel de notificaciones
+  settingsBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const isOpen = !settingsPanel.hidden;
+    settingsPanel.hidden = isOpen;
+    settingsBtn.setAttribute('aria-expanded', String(!isOpen));
+  });
+  document.addEventListener('click', (e) => {
+    if (!settingsPanel.hidden && !e.target.closest('.settings-wrap')) {
+      settingsPanel.hidden = true;
+      settingsBtn.setAttribute('aria-expanded', 'false');
+    }
+  });
+
+  // Un "beep" generado con Web Audio — no necesita ningún archivo de sonido
+  function playTone(freq, durationMs) {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.15, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + durationMs / 1000);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + durationMs / 1000);
+    } catch {
+      // Si el navegador bloquea el audio (por ejemplo, sin interacción previa
+      // del usuario todavía), simplemente no suena — no rompemos nada más.
+    }
+  }
+
+  let notifPermissionAsked = false;
+  function notify(title, body) {
+    if (!('Notification' in window)) return;
+    if (Notification.permission === 'granted') {
+      new Notification(title, { body, icon: 'assets/logo-kesta.png' });
+    } else if (Notification.permission !== 'denied' && !notifPermissionAsked) {
+      notifPermissionAsked = true;
+      Notification.requestPermission().then((perm) => {
+        if (perm === 'granted') new Notification(title, { body, icon: 'assets/logo-kesta.png' });
+      });
+    }
+  }
+
+  // Se llama una vez por segundo (desde recordSample) mientras hay cámara conectada
+  function trackBadPostureAlert(isGood) {
+    if (isGood) {
+      badPostureSeconds = 0;
+      secondsSinceLastAlert = 0;
+      return;
+    }
+    badPostureSeconds += 1;
+    secondsSinceLastAlert += 1;
+
+    if (!alertsToggle.checked) return;
+
+    const dueForFirstAlert = badPostureSeconds === BAD_POSTURE_ALERT_SECONDS;
+    const dueForRepeat = badPostureSeconds > BAD_POSTURE_ALERT_SECONDS && secondsSinceLastAlert >= BAD_POSTURE_REPEAT_SECONDS;
+
+    if (dueForFirstAlert || dueForRepeat) {
+      secondsSinceLastAlert = 0;
+      playTone(320, 350);
+      notify('¡Corrige tu postura! 🧍', 'Llevas un rato encorvado — endereza la espalda.');
+    }
+  }
+
+  // ---------- Recordatorios de pausas activas (independiente de la cámara) ----------
+  setInterval(() => {
+    if (!breaksToggle.checked) return;
+    playTone(520, 250);
+    notify('Hora de una pausa 🧘', 'Levántate, estírate y descansa la vista un momento.');
+  }, BREAK_REMINDER_MS);
+
+  // ============================================================
+  // 6. MODO PRESENTACIÓN (para mostrarle el proyecto a los jueces)
+  // ============================================================
+  function setPresentationMode(on) {
+    document.body.classList.toggle('presentation-mode', on);
+    exitPresentationBtn.hidden = !on;
+    if (on && document.documentElement.requestFullscreen) {
+      document.documentElement.requestFullscreen().catch(() => {
+        // Si el navegador no deja pantalla completa, seguimos igual en modo
+        // presentación, solo sin ocupar toda la pantalla física.
+      });
+    } else if (!on && document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    }
+  }
+
+  presentationBtn.addEventListener('click', () => setPresentationMode(true));
+  exitPresentationBtn.addEventListener('click', () => setPresentationMode(false));
+  document.addEventListener('fullscreenchange', () => {
+    if (!document.fullscreenElement) setPresentationMode(false);
+  });
+
+  // ============================================================
+  // 7. HISTORIAL CON GRÁFICA DE BARRAS (últimos 7 días reales)
+  // ============================================================
+  function last7Days() {
+    const days = [];
+    const cursor = new Date();
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(cursor);
+      d.setDate(cursor.getDate() - i);
+      days.push(d);
+    }
+    return days;
+  }
+
+  function renderHistoryChart() {
+    const dayNames = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+    const shortNames = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
+    const days = last7Days();
+    const today = todayKey();
+
+    barChart.innerHTML = '';
+    historyTableBody.innerHTML = '';
+
+    days.forEach((d) => {
+      const key = todayKey(d);
+      const day = history[key];
+      const hasData = !!day && day.totalSeconds > 0;
+      const percent = hasData ? Math.round((day.goodSeconds / day.totalSeconds) * 100) : 0;
+      const label = shortNames[d.getDay()];
+      const fullName = dayNames[d.getDay()];
+      const isToday = key === today;
+
+      // --- barra ---
+      const col = document.createElement('div');
+      col.className = 'bar-col' + (isToday ? ' is-today' : '') + (hasData ? '' : ' no-data');
+      col.title = hasData ? `${fullName}: ${percent}% en buena postura` : `${fullName}: sin datos`;
+
+      const value = document.createElement('span');
+      value.className = 'bar-value';
+      value.textContent = hasData ? `${percent}%` : '–';
+
+      const track = document.createElement('div');
+      track.className = 'bar-track';
+      const fill = document.createElement('div');
+      fill.className = 'bar-fill';
+      fill.style.height = hasData ? `${Math.max(percent, 3)}%` : '0%';
+      track.appendChild(fill);
+
+      const labelEl = document.createElement('span');
+      labelEl.className = 'bar-label';
+      labelEl.textContent = label;
+
+      col.append(value, track, labelEl);
+      barChart.appendChild(col);
+
+      // --- fila de la tabla (misma información, accesible) ---
+      const row = document.createElement('tr');
+      row.innerHTML = `<td>${fullName.charAt(0).toUpperCase() + fullName.slice(1)}${isToday ? ' (hoy)' : ''}</td><td>${hasData ? percent + '%' : 'Sin datos'}</td>`;
+      historyTableBody.appendChild(row);
+    });
+  }
+
+  historyTableToggle.addEventListener('click', () => {
+    const showingTable = !historyTable.hidden;
+    historyTable.hidden = showingTable;
+    barChart.hidden = !showingTable;
+    historyTableToggle.textContent = showingTable ? 'Ver como gráfica' : 'Ver como tabla';
+  });
 })();
