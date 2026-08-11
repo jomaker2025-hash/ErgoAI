@@ -37,6 +37,9 @@ buzzer (una IdeaBoard), que se enciende en rojo y suena cuando llevas rato en ma
   (ve la sección de Hardware).
 - 🖥️ **Modo presentación**: pantalla completa pensada para mostrar el proyecto a los
   jueces.
+- 🖥️🐍 **Modo escritorio (Python)**: un programa aparte con OpenCV que detecta la
+  postura con 3 señales (hombros, cadera y cabeza) y también controla el buzzer —
+  ideal para la mesa de la feria (ve `desktop/`).
 - 📱 Diseño responsivo — funciona en computadora, tablet y celular.
 
 ## Tecnología
@@ -44,9 +47,10 @@ buzzer (una IdeaBoard), que se enciende en rojo y suena cuando llevas rato en ma
 | Parte | Tecnología |
 |---|---|
 | Interfaz | HTML, CSS y JavaScript puro (sin frameworks) |
-| Detección de postura | [MediaPipe Pose](https://developers.google.com/mediapipe) (corre en el navegador) |
-| Cámara | La del propio dispositivo, vía `getUserMedia` |
-| Alerta física (opcional) | IdeaBoard (CircuitPython) por USB, vía Web Serial API |
+| Detección de postura (web) | [MediaPipe Pose](https://developers.google.com/mediapipe) (corre en el navegador) |
+| Detección de postura (escritorio) | MediaPipe Pose + OpenCV, en Python (`desktop/`) |
+| Cámara | La del propio dispositivo, vía `getUserMedia` (web) u OpenCV (escritorio) |
+| Alerta física (opcional) | IdeaBoard (CircuitPython), por USB — desde el navegador (Web Serial API) o desde Python (`pyserial`) |
 | Guardado de progreso | `localStorage` del navegador (sin servidor/base de datos) |
 | Hosting | GitHub Pages |
 
@@ -59,11 +63,14 @@ ErgoAI/
 ├── app.js                   # Lógica: IA, cámara, racha, notificaciones, buzzer
 ├── manifest.json             # Para poder "instalar" la página como app
 ├── assets/                   # Logo e íconos
-└── hardware/
-    ├── ideaboard_buzzer/
-    │   └── code.py               # Programa de la placa del buzzer (CircuitPython)
-    └── esp32cam_stream/          # (Legado) streaming por WiFi — ya no se usa en la app
-        └── esp32cam_stream.ino
+├── hardware/
+│   ├── ideaboard_buzzer/
+│   │   └── code.py               # Programa de la placa del buzzer (CircuitPython)
+│   └── esp32cam_stream/          # (Legado) streaming por WiFi — ya no se usa en la app
+│       └── esp32cam_stream.ino
+└── desktop/
+    ├── posture_detector.py       # Modo escritorio: cámara + IA + buzzer, en Python
+    └── requirements.txt
 ```
 
 ## Cómo correrlo localmente
@@ -99,6 +106,35 @@ igual de completo, solo sin esta señal extra.
 > ESP32-CAM transmitiendo por WiFi) que ya no está conectada a la interfaz actual —
 > se dejó en el repositorio como referencia. Si algún día la vuelves a usar, recuerda
 > nunca subir tu contraseña real de WiFi a un repositorio público.
+
+## Modo escritorio (Kesta 7)
+
+`desktop/posture_detector.py` es un programa aparte en Python: abre la cámara con
+OpenCV, detecta tu postura con MediaPipe Pose usando **tres señales** (inclinación de
+hombros, inclinación de cadera, y qué tan alta está tu cabeza respecto a tus hombros),
+muestra una ventana con el esqueleto dibujado encima, y le manda el resultado a la
+IdeaBoard por el mismo cable USB.
+
+Es una alternativa a controlar el buzzer desde la página web — no necesita navegador,
+y es una buena opción para dejar corriendo en la mesa de la feria con su propia
+ventana. Usa el mismo protocolo de texto (`GOOD`/`ATTENTION`/`BAD`/`OFF`) que
+`hardware/ideaboard_buzzer/code.py` ya entiende, así que **cualquiera de los dos**
+—la web o este script— puede controlar la placa, pero no los dos al mismo tiempo (el
+puerto USB solo lo puede tener abierto un programa a la vez).
+
+Para correrlo:
+
+```bash
+cd desktop
+pip install -r requirements.txt
+python posture_detector.py
+```
+
+Antes de correrlo, revisa que la constante `PUERTO` al inicio del archivo tenga el
+COM correcto de tu IdeaBoard (Administrador de dispositivos → Puertos (COM y LPT), en
+Windows). Si el puerto está mal o alguien más lo tiene abierto, el programa ahora te
+lo dice claro y te muestra qué puertos sí están disponibles, en vez de cerrarse con un
+error críptico. Para salir, con la ventana de la cámara activa, presiona `ESC`.
 
 ---
 

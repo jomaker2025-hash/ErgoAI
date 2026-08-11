@@ -1,0 +1,9 @@
+# Python (desktop/posture_detector.py)
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Editor/OS
+.DS_Store
+Thumbs.db
