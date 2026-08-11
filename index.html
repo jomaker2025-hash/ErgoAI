@@ -93,27 +93,12 @@
     <!-- ======================= CONEXIÓN DE LA CÁMARA ======================= -->
     <section class="camera-setup" id="cameraSetup">
       <div class="camera-setup-text">
-        <p class="camera-setup-title">Conecta una cámara para detectar tu postura</p>
-        <p class="camera-setup-sub">Pruébalo ya mismo con la cámara de esta computadora o celular, o conecta tu ESP32-CAM por WiFi cuando esté lista.</p>
+        <p class="camera-setup-title">Conecta tu cámara para detectar tu postura</p>
+        <p class="camera-setup-sub">Funciona con la cámara de cualquier computadora, tablet o celular — no necesitas instalar nada ni estar en ninguna red especial.</p>
       </div>
 
-      <!-- Elegir de dónde viene el video -->
-      <div class="camera-source-tabs" id="cameraSourceTabs">
-        <button type="button" class="source-tab active" data-source="webcam">💻 Cámara de este dispositivo</button>
-        <button type="button" class="source-tab" data-source="esp32">🔌 ESP32-CAM por WiFi</button>
-      </div>
-
-      <!-- Opción A: la cámara de esta computadora/celular (funciona ahora mismo) -->
       <div class="camera-source-panel" id="webcamPanel">
         <button type="button" class="btn-connect" id="webcamConnectBtn">Activar cámara</button>
-      </div>
-
-      <!-- Opción B: la ESP32-CAM por WiFi -->
-      <div class="camera-source-panel" id="esp32Panel" hidden>
-        <form class="camera-setup-form" id="cameraForm">
-          <input type="text" id="cameraIpInput" class="camera-ip-input" placeholder="192.168.1.50" inputmode="decimal" autocomplete="off" />
-          <button type="submit" class="btn-connect">Conectar</button>
-        </form>
       </div>
 
       <canvas class="pose-preview" id="poseCanvas" width="320" height="240" hidden></canvas>
@@ -125,14 +110,31 @@
         <span class="calibrate-status" id="calibrateStatus">Sin calibrar (usando referencia genérica)</span>
       </div>
 
-      <button type="button" class="btn-change-ip" id="changeIpBtn" hidden>Desconectar / cambiar cámara</button>
+      <button type="button" class="btn-change-ip" id="changeIpBtn" hidden>Desconectar cámara</button>
       <p class="camera-setup-error" id="cameraError" hidden></p>
     </section>
 
-    <!-- Fuentes reales del video: se mantienen ocultas, solo alimentan a la IA.
+    <!-- ======================= ALERTA FÍSICA (opcional) =======================
+         Placa aparte (IdeaBoard: buzzer + luz LED) conectada por cable USB.
+         100% opcional: sin ella la app funciona igual de completa. -->
+    <section class="camera-setup hardware-setup" id="hardwareSetup">
+      <div class="camera-setup-text">
+        <p class="camera-setup-title">🔌 Alerta física (opcional)</p>
+        <p class="camera-setup-sub">Conecta por cable USB la placa con el buzzer y la luz para que avise también fuera de la pantalla. Disponible en Chrome o Edge de computadora.</p>
+      </div>
+      <div class="hardware-controls">
+        <button type="button" class="btn-connect" id="hwConnectBtn">🔌 Conectar placa (buzzer)</button>
+        <div class="camera-pill" id="hwPill">
+          <span class="dot"></span>
+          <span class="pill-text">Placa desconectada</span>
+        </div>
+      </div>
+      <p class="camera-setup-error" id="hwUnsupportedMsg" hidden>Tu navegador no soporta esta función todavía (Web Serial). No pasa nada: ErgoAI funciona completo igual, solo sin el buzzer.</p>
+    </section>
+
+    <!-- Fuente real del video: se mantiene oculta, solo alimenta a la IA.
          Lo que sí ves es el "poseCanvas" de arriba, ya con el esqueleto dibujado. -->
     <video id="webcamVideo" class="camera-stream-hidden" autoplay playsinline muted></video>
-    <img id="cameraStream" class="camera-stream-hidden" alt="" />
 
     <!-- ======================= ESTADO EN VIVO ======================= -->
     <main class="dashboard">
@@ -220,7 +222,7 @@
 
     <footer class="footer">
       <p>ErgoAI © 2026 — Proyecto Kesta GHS</p>
-      <p class="version-tag">Kesta 4 · alertas, historial &amp; modo feria</p>
+      <p class="version-tag">Kesta 6 · cámara universal &amp; alerta física</p>
     </footer>
   </div>
 
@@ -228,11 +230,11 @@
   <button type="button" class="exit-presentation" id="exitPresentationBtn" hidden>✕ Salir del modo presentación</button>
 
   <!-- ============================================================
-       BOTÓN TEMPORAL DE VISTA PREVIA
-       Esto NO es la funcionalidad real (todavía no tenemos la
-       cámara conectada). Es solo para que puedas ver cómo se
-       vería la tarjeta cuando detecte una MALA postura.
-       Lo vamos a reemplazar más adelante por datos reales del ESP32-CAM.
+       BOTÓN DE VISTA PREVIA (sin cámara conectada)
+       Deja ver cómo se ve la tarjeta en "Mala Postura" sin necesidad
+       de cámara — útil para mostrar el diseño rápido. En cuanto
+       conectas una cámara real, este botón se esconde solo (lo
+       controla setCameraPillState en app.js) y manda la IA en vivo.
        ============================================================ -->
   <button type="button" class="demo-toggle" id="demoToggle">👁️ Vista previa: Mala Postura</button>
 

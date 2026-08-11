@@ -1,22 +1,20 @@
 /* ============================================================
-   ErgoAI — Lógica de la aplicación (Kesta 2+)
+   ErgoAI — Lógica de la aplicación (Kesta 6)
    ------------------------------------------------------------
    Este archivo maneja:
    1. La pantalla de carga (splash)
-   2. La conexión con la cámara ESP32-CAM (IP que tú escribes)
+   2. La conexión con la cámara del propio dispositivo (compu,
+      tablet o celular) vía getUserMedia — sin IPs ni redes WiFi
+      que configurar, funciona para cualquier persona.
    3. La detección de postura con IA (MediaPipe Pose), corriendo
       directo en tu navegador — no hay servidor externo.
    4. El cálculo REAL de racha / progreso, guardado en este
       navegador (localStorage). Si limpias los datos del navegador
       o usas otra computadora, se reinicia — es una limitación
-      honesta de esta primera versión sin servidor propio.
+      honesta de esta versión sin servidor propio.
    5. Pintar todo eso en la interfaz.
-
-   NOTA PARA JOHEL: este archivo se escribió sin poder probarlo
-   contra tu ESP32-CAM real. La arquitectura es correcta y es la
-   misma que usan tutoriales reales de MediaPipe + ESP32-CAM, pero
-   revisa el mensaje que te dejé en el chat para el checklist de
-   prueba y los puntos donde algo podría necesitar un ajuste.
+   6. La alerta física opcional: buzzer + luz LED en una placa
+      aparte (IdeaBoard), conectada por cable USB vía Web Serial.
    ============================================================ */
 
 (() => {
@@ -34,15 +32,10 @@
   const demoBtn = document.getElementById('demoToggle');
 
   const cameraSetup = document.getElementById('cameraSetup');
-  const cameraSourceTabs = document.getElementById('cameraSourceTabs');
   const webcamPanel = document.getElementById('webcamPanel');
-  const esp32Panel = document.getElementById('esp32Panel');
   const webcamConnectBtn = document.getElementById('webcamConnectBtn');
   const webcamVideo = document.getElementById('webcamVideo');
-  const cameraForm = document.getElementById('cameraForm');
-  const cameraIpInput = document.getElementById('cameraIpInput');
   const cameraError = document.getElementById('cameraError');
-  const cameraStreamImg = document.getElementById('cameraStream');
   const poseCanvas = document.getElementById('poseCanvas');
   const poseCtx = poseCanvas.getContext('2d');
   const changeIpBtn = document.getElementById('changeIpBtn');
@@ -79,6 +72,17 @@
     const m = String(date.getMonth() + 1).padStart(2, '0');
     const d = String(date.getDate()).padStart(2, '0');
     return `${y}-${m}-${d}`;
+  }
+
+  // Guarda/lee de localStorage sin romper la página si el navegador lo
+  // bloquea (pasa en modo privado de algunos navegadores, o con ciertas
+  // configuraciones de cookies/privacidad) — así "cualquier persona en
+  // cualquier dispositivo" puede usar la app aunque no guarde su progreso.
+  function safeGetItem(key) {
+    try { return localStorage.getItem(key); } catch { return null; }
+  }
+  function safeSetItem(key, value) {
+    try { localStorage.setItem(key, value); } catch { /* seguimos sin guardar */ }
   }
 
   function crossfadeText(el, newText) {
@@ -142,13 +146,13 @@
 
   function loadHistory() {
     try {
-      return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+      return JSON.parse(safeGetItem(STORAGE_KEY)) || {};
     } catch {
       return {};
     }
   }
   function saveHistory(hist) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(hist));
+    safeSetItem(STORAGE_KEY, JSON.stringify(hist));
   }
 
   let history = loadHistory();
@@ -178,6 +182,7 @@
     saveHistory(history);
     renderFromStorage();
     trackBadPostureAlert(isGood);
+    syncHardwareState(isGood);
   }
 
   // Un día cuenta como "bueno" si al menos el 50% del tiempo medido fue buena postura
@@ -302,7 +307,6 @@
   // ============================================================
   // 4. CONEXIÓN CON LA CÁMARA (cualquier dispositivo) + IA
   // ============================================================
-  const IP_STORAGE_KEY = 'ergoai_camera_ip';
   const CALIBRATION_KEY = 'ergoai_calibrated_angle';
   const CALIBRATION_MS = 3000; // cuánto dura la calibración
   const CALIBRATION_MARGIN = 12; // grados de margen sobre TU ángulo calibrado
@@ -319,8 +323,7 @@
   let confirmedGood = true;
   let secondTickInterval = null;
   let webcamStream = null;
-  let activeSource = null; // { el: <video>|<img>, type: 'webcam' | 'esp32' }
-  let calibratedAngle = parseFloat(localStorage.getItem(CALIBRATION_KEY)) || null;
+  let calibratedAngle = parseFloat(safeGetItem(CALIBRATION_KEY)) || null;
   let calibrating = false;
   let calibrationSamples = [];
 
@@ -336,30 +339,18 @@
     cameraError.hidden = true;
   }
 
-  function setCameraPillState(connected, sourceType) {
+  function setCameraPillState(connected) {
     cameraConnected = connected;
     cameraPill.classList.toggle('connected', connected);
-    cameraPillText.textContent = connected
-      ? (sourceType === 'webcam' ? 'Cámara del dispositivo conectada' : 'ESP32-CAM conectada')
-      : 'Cámara desconectada';
+    cameraPillText.textContent = connected ? 'Cámara del dispositivo conectada' : 'Cámara desconectada';
     demoBtn.style.display = connected ? 'none' : '';
   }
 
-  // ---------- Pestañas: elegir de dónde viene el video ----------
-  cameraSourceTabs.addEventListener('click', (e) => {
-    const tabBtn = e.target.closest('.source-tab');
-    if (!tabBtn) return;
-    cameraSourceTabs.querySelectorAll('.source-tab').forEach((t) => t.classList.remove('active'));
-    tabBtn.classList.add('active');
-    const source = tabBtn.dataset.source;
-    webcamPanel.hidden = source !== 'webcam';
-    esp32Panel.hidden = source !== 'esp32';
-    hideCameraError();
-  });
-
-  // ---------- Opción A: cámara de este dispositivo (funciona ahora mismo,
-  //            sin necesitar la ESP32-CAM — sirve para probar que la IA
-  //            de verdad reconoce tu postura) ----------
+  // ---------- Cámara de este dispositivo: compu, tablet o celular ----------
+  // Un solo camino para todos — sin IPs, sin redes WiFi que configurar.
+  // getUserMedia necesita "contexto seguro" (https:// o localhost), que es
+  // justo como sirve GitHub Pages, así que funciona para cualquier persona
+  // que abra el link, en cualquier dispositivo con cámara.
   webcamConnectBtn.addEventListener('click', async () => {
     hideCameraError();
     webcamConnectBtn.disabled = true;
@@ -371,11 +362,18 @@
       });
       webcamVideo.srcObject = webcamStream;
       await webcamVideo.play();
-      onCameraConnected({ el: webcamVideo, type: 'webcam' });
+      onCameraConnected();
     } catch (err) {
-      const msg = err && err.name === 'NotAllowedError'
-        ? 'Le negaste el permiso de cámara al navegador. Dale clic al ícono de cámara/candado en la barra de direcciones para permitirlo, y vuelve a intentar.'
-        : 'No se pudo activar la cámara de este dispositivo (¿otra aplicación la está usando?).';
+      let msg = 'No se pudo activar la cámara de este dispositivo (¿otra aplicación la está usando?).';
+      if (err && err.name === 'NotAllowedError') {
+        msg = 'Le negaste el permiso de cámara al navegador. Dale clic al ícono de cámara/candado en la barra de direcciones para permitirlo, y vuelve a intentar.';
+      } else if (err && err.name === 'NotFoundError') {
+        msg = 'No encontramos ninguna cámara en este dispositivo.';
+      } else if (!window.isSecureContext) {
+        // getUserMedia solo funciona en https:// o localhost — este es el
+        // error más común si alguien abre la app desde un http:// normal.
+        msg = 'Por seguridad, los navegadores solo permiten usar la cámara en páginas https:// (o localhost). Abre el link público (https://…) en vez de una copia local por http://.';
+      }
       showCameraError(msg);
     } finally {
       webcamConnectBtn.disabled = false;
@@ -383,30 +381,7 @@
     }
   });
 
-  // ---------- Opción B: ESP32-CAM por WiFi ----------
-  const savedIp = localStorage.getItem(IP_STORAGE_KEY);
-  if (savedIp) cameraIpInput.value = savedIp;
-
-  cameraForm.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const ip = cameraIpInput.value.trim();
-    if (!ip) return;
-    connectEsp32(ip);
-  });
-
-  function connectEsp32(ip) {
-    hideCameraError();
-    localStorage.setItem(IP_STORAGE_KEY, ip);
-    cameraStreamImg.crossOrigin = 'anonymous';
-    cameraStreamImg.onload = () => onCameraConnected({ el: cameraStreamImg, type: 'esp32' });
-    cameraStreamImg.onerror = () => {
-      showCameraError('No se pudo conectar. Revisa que la ESP32-CAM esté encendida, en la misma red WiFi, y que la IP sea correcta.');
-    };
-    // Se agrega "?t=" para evitar que el navegador reutilice una conexión vieja
-    cameraStreamImg.src = `http://${ip}/?t=${Date.now()}`;
-  }
-
-  // ---------- Desconectar (sirve para cualquiera de las dos fuentes) ----------
+  // ---------- Desconectar ----------
   changeIpBtn.addEventListener('click', disconnectCamera);
 
   function disconnectCamera() {
@@ -415,18 +390,33 @@
       webcamStream = null;
     }
     webcamVideo.srcObject = null;
-    cameraStreamImg.src = '';
-    activeSource = null;
     setCameraPillState(false);
     cameraSetup.classList.remove('is-connected');
     poseCanvas.hidden = true;
     changeIpBtn.hidden = true;
     calibrateRow.hidden = true;
+
+    // Arreglo: antes, al desconectar y reconectar la cámara, quedaban
+    // contadores "a medias" de la sesión anterior (el intervalo de conteo
+    // seguía corriendo en el fondo, la calibración podía quedar trabada
+    // si desconectabas a medio conteo, y las alertas arrastraban tiempo
+    // viejo). Ahora se reinicia todo limpio cada vez.
+    if (secondTickInterval) {
+      clearInterval(secondTickInterval);
+      secondTickInterval = null;
+    }
+    goodStreakFrames = 0;
+    badStreakFrames = 0;
+    badPostureSeconds = 0;
+    secondsSinceLastAlert = 0;
+    calibrating = false;
+    calibrateBtn.disabled = false;
+
+    sendHwCommand('OFF');
   }
 
-  function onCameraConnected(source) {
-    activeSource = source;
-    setCameraPillState(true, source.type);
+  function onCameraConnected() {
+    setCameraPillState(true);
     cameraSetup.classList.add('is-connected');
     poseCanvas.hidden = false;
     changeIpBtn.hidden = false;
@@ -443,6 +433,10 @@
       poseLoopRunning = true;
       requestAnimationFrame(poseLoop);
     }
+
+    // Si la placa del buzzer ya estaba conectada, avísale el estado actual
+    // de una vez (en vez de esperar hasta 1 segundo al primer tick)
+    syncHardwareState(confirmedGood);
   }
 
   function initPoseIfNeeded() {
@@ -463,18 +457,10 @@
     pose.onResults(onPoseResults);
   }
 
-  // Funciona igual sin importar si la fuente es la webcam (<video>) o la
-  // ESP32-CAM (<img>) — así el mismo pipeline sirve para "cualquier dispositivo".
-  function sourceHasFrame() {
-    if (!activeSource) return false;
-    const el = activeSource.el;
-    return activeSource.type === 'webcam' ? el.readyState >= 2 : !!el.naturalWidth;
-  }
-
   function poseLoop() {
     requestAnimationFrame(poseLoop);
-    if (!cameraConnected || !pose || !sourceHasFrame()) return;
-    pose.send({ image: activeSource.el }).catch(() => {
+    if (!cameraConnected || !pose || webcamVideo.readyState < 2) return;
+    pose.send({ image: webcamVideo }).catch(() => {
       // Si un cuadro falla lo saltamos, no interrumpimos el ciclo completo
     });
   }
@@ -507,7 +493,7 @@
     }
     const avg = calibrationSamples.reduce((a, b) => a + b, 0) / calibrationSamples.length;
     calibratedAngle = avg;
-    localStorage.setItem(CALIBRATION_KEY, avg.toFixed(2));
+    safeSetItem(CALIBRATION_KEY, avg.toFixed(2));
     calibrateStatus.textContent = `Calibrada: ${avg.toFixed(0)}° de referencia`;
   }
 
@@ -581,13 +567,13 @@
   let secondsSinceLastAlert = 0;
 
   // Recuerda tu preferencia entre visitas
-  alertsToggle.checked = localStorage.getItem(ALERTS_KEY) !== 'false';
-  breaksToggle.checked = localStorage.getItem(BREAKS_KEY) !== 'false';
+  alertsToggle.checked = safeGetItem(ALERTS_KEY) !== 'false';
+  breaksToggle.checked = safeGetItem(BREAKS_KEY) !== 'false';
   alertsToggle.addEventListener('change', () => {
-    localStorage.setItem(ALERTS_KEY, alertsToggle.checked);
+    safeSetItem(ALERTS_KEY, alertsToggle.checked);
   });
   breaksToggle.addEventListener('change', () => {
-    localStorage.setItem(BREAKS_KEY, breaksToggle.checked);
+    safeSetItem(BREAKS_KEY, breaksToggle.checked);
   });
 
   // Abrir/cerrar el panel de notificaciones
@@ -628,11 +614,11 @@
   function notify(title, body) {
     if (!('Notification' in window)) return;
     if (Notification.permission === 'granted') {
-      new Notification(title, { body, icon: 'assets/logo-kesta.png' });
+      new Notification(title, { body, icon: 'assets/favicon.svg' });
     } else if (Notification.permission !== 'denied' && !notifPermissionAsked) {
       notifPermissionAsked = true;
       Notification.requestPermission().then((perm) => {
-        if (perm === 'granted') new Notification(title, { body, icon: 'assets/logo-kesta.png' });
+        if (perm === 'granted') new Notification(title, { body, icon: 'assets/favicon.svg' });
       });
     }
   }
@@ -756,4 +742,121 @@
     barChart.hidden = !showingTable;
     historyTableToggle.textContent = showingTable ? 'Ver como gráfica' : 'Ver como tabla';
   });
+
+  // ============================================================
+  // 8. ALERTA FÍSICA (Kesta 6): buzzer + luz LED en una placa
+  //    aparte (IdeaBoard), conectada por CABLE USB.
+  //
+  //    La placa ya trae su propio programa corriendo (CircuitPython),
+  //    esperando líneas de texto por el puerto serial: "GOOD",
+  //    "ATTENTION", "BAD" u "OFF". Este bloque solo se encarga de
+  //    mandarle esas palabras según lo que la cámara va detectando.
+  //
+  //    Es 100% opcional — sin la placa conectada, la app funciona
+  //    igual de completa, solo con la tarjeta de estado en pantalla.
+  //    Usa la Web Serial API, que solo existe en Chrome/Edge de
+  //    computadora (no en celular, no en Firefox/Safari) — por eso
+  //    se detecta primero si el navegador la soporta.
+  // ============================================================
+  const hwConnectBtn = document.getElementById('hwConnectBtn');
+  const hwPill = document.getElementById('hwPill');
+  const hwPillText = hwPill ? hwPill.querySelector('.pill-text') : null;
+  const hwUnsupportedMsg = document.getElementById('hwUnsupportedMsg');
+
+  const HW_SUPPORTED = 'serial' in navigator;
+
+  let hwPort = null;
+  let hwWriter = null;
+  let hwWritableClosed = null;
+  let lastHwCommand = null;
+
+  if (!HW_SUPPORTED && hwConnectBtn) {
+    hwConnectBtn.disabled = true;
+    hwConnectBtn.textContent = 'No disponible en este navegador';
+    if (hwUnsupportedMsg) hwUnsupportedMsg.hidden = false;
+  }
+
+  function setHwPillState(connected) {
+    if (hwConnectBtn) {
+      hwConnectBtn.textContent = connected ? 'Desconectar placa' : '🔌 Conectar placa (buzzer)';
+    }
+    if (hwPill) hwPill.classList.toggle('connected', connected);
+    if (hwPillText) hwPillText.textContent = connected ? 'Placa conectada' : 'Placa desconectada';
+  }
+
+  // Solo manda un comando por el cable cuando SÍ cambió, para no saturar
+  // el puerto serial mandando la misma palabra decenas de veces por segundo.
+  function sendHwCommand(cmd) {
+    if (!hwWriter || cmd === lastHwCommand) return;
+    lastHwCommand = cmd;
+    hwWriter.write(cmd + '\n').catch(() => {
+      // Lo más probable es que se desconectó el cable a medio camino
+      disconnectHardware();
+    });
+  }
+
+  // Traduce el estado de la postura a los 3 niveles que la placa entiende:
+  // buena postura, "llevas un rato así" (todavía sin sonar), y alarma activa.
+  function syncHardwareState(isGood) {
+    if (!hwWriter) return;
+    if (isGood) {
+      sendHwCommand('GOOD');
+      return;
+    }
+    sendHwCommand(badPostureSeconds >= BAD_POSTURE_ALERT_SECONDS ? 'BAD' : 'ATTENTION');
+  }
+
+  async function connectHardware() {
+    if (!HW_SUPPORTED) return;
+    try {
+      hwPort = await navigator.serial.requestPort();
+      await hwPort.open({ baudRate: 115200 });
+      const encoder = new TextEncoderStream();
+      hwWritableClosed = encoder.readable.pipeTo(hwPort.writable);
+      hwWriter = encoder.writable.getWriter();
+      lastHwCommand = null;
+      setHwPillState(true);
+      // Si la cámara ya estaba activa, avisa el estado actual de una vez;
+      // si no, deja la placa apagada hasta que haya postura que reportar.
+      sendHwCommand(cameraConnected ? (confirmedGood ? 'GOOD' : 'BAD') : 'OFF');
+      navigator.serial.addEventListener('disconnect', handleHwUnplugged);
+    } catch (err) {
+      // "NotFoundError" pasa si el usuario cierra el selector de puerto sin
+      // elegir nada — no es un error real, no hace falta avisar nada.
+      if (err && err.name !== 'NotFoundError') {
+        showCameraError('No se pudo conectar con la placa. Revisa que esté conectada por USB y que ningún otro programa (Mu, monitor serial, Arduino IDE…) tenga su puerto abierto.');
+      }
+    }
+  }
+
+  function handleHwUnplugged() {
+    disconnectHardware();
+  }
+
+  async function disconnectHardware() {
+    navigator.serial.removeEventListener('disconnect', handleHwUnplugged);
+    try {
+      if (hwWriter) {
+        await hwWriter.write('OFF\n').catch(() => {});
+        hwWriter.releaseLock();
+      }
+      if (hwWritableClosed) await hwWritableClosed.catch(() => {});
+      if (hwPort) await hwPort.close();
+    } catch {
+      // Si el cable ya se desconectó físicamente, cerrar puede fallar solo
+      // — no es un problema, la placa de todas formas ya no está conectada.
+    }
+    hwPort = null;
+    hwWriter = null;
+    hwWritableClosed = null;
+    lastHwCommand = null;
+    setHwPillState(false);
+  }
+
+  if (hwConnectBtn) {
+    hwConnectBtn.addEventListener('click', () => {
+      if (hwPort) disconnectHardware();
+      else connectHardware();
+    });
+  }
 })();

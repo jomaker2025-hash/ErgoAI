@@ -395,61 +395,27 @@ body {
   color: var(--text-secondary);
 }
 
-/* Pestañas para elegir de dónde viene el video */
-.camera-source-tabs {
-  display: flex;
-  gap: 8px;
-  background: var(--bg);
-  border: 1px solid var(--card-border);
-  border-radius: 999px;
-  padding: 4px;
-  width: 100%;
-}
-
-.source-tab {
-  flex: 1;
-  background: none;
-  border: none;
-  color: var(--text-secondary);
-  font-family: 'Inter', sans-serif;
-  font-size: 0.8rem;
-  font-weight: 600;
-  padding: 9px 14px;
-  border-radius: 999px;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background 0.25s var(--ease-fluid), color 0.25s ease;
-}
-
-.source-tab.active {
-  background: var(--teal);
-  color: #04201f;
-}
-
 .camera-source-panel {
   width: 100%;
 }
 
-.camera-setup-form {
+/* Panel de la alerta física (buzzer): mismo estilo que camera-setup,
+   solo un poco más angosto de "aire" vertical entre secciones */
+.hardware-setup {
+  margin-top: -4px;
+}
+
+.hardware-controls {
   display: flex;
-  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
 }
 
-.camera-ip-input {
-  background: var(--bg);
-  border: 1px solid var(--card-border);
-  border-radius: 10px;
-  padding: 10px 14px;
-  color: var(--text-primary);
-  font-family: 'Inter', sans-serif;
-  font-size: 0.9rem;
-  width: 160px;
-  outline: none;
-  transition: border-color 0.2s ease;
-}
-
-.camera-ip-input:focus {
-  border-color: var(--teal);
+.btn-connect:disabled {
+  opacity: 0.5;
+  cursor: default;
+  transform: none !important;
 }
 
 .btn-connect {
@@ -546,7 +512,6 @@ body {
 
 /* Cuando ya está conectada, escondemos las pestañas y el panel que
    se haya usado, y dejamos la vista previa + los controles activos */
-.camera-setup.is-connected .camera-source-tabs,
 .camera-setup.is-connected .camera-source-panel {
   display: none;
 }
@@ -1283,29 +1248,17 @@ body {
     gap: 14px;
   }
 
-  .camera-setup-form {
-    width: 100%;
-  }
-
-  .camera-ip-input {
-    flex: 1;
-    width: auto;
-    min-width: 0;
-  }
-
   .pose-preview {
     width: 100%;
     height: 140px;
   }
 
-  .camera-source-tabs {
-    flex-direction: column;
-    border-radius: 14px;
+  .hardware-controls {
+    width: 100%;
   }
 
-  .source-tab {
-    white-space: normal;
-    font-size: 0.78rem;
+  .hardware-controls .btn-connect {
+    width: 100%;
   }
 
   .calibrate-row {
