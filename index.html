@@ -240,9 +240,19 @@
 
   <!-- Motor de IA para detectar postura (MediaPipe Pose, de Google) —
        corre completo dentro de tu navegador, no manda tu video a ningún
-       servidor externo. Necesita internet para descargarse la primera vez. -->
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+       servidor externo. Necesita internet para descargarse la primera vez.
+
+       Las 3 versiones de abajo están "fijadas" a un número exacto (en vez
+       de pedir la "más reciente"). Arreglo: pedir la más reciente puede
+       traer, sin que nos demos cuenta, una versión de pose.js que ya no
+       combina bien con sus propios archivos internos (el CDN a veces
+       entrega una copia más nueva de un archivo que de otro) — eso hacía
+       que la cámara se conectara pero la IA nunca respondiera, dejando el
+       recuadro de vista previa en negro para siempre. Fijar el número
+       evita ese desajuste. -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/pose.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3.1675466124/drawing_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js" crossorigin="anonymous"></script>
   <script src="app.js"></script>
 </body>
 </html>

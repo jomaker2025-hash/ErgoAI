@@ -317,7 +317,11 @@
   const DEBOUNCE_FRAMES = 8;
 
   let pose = null;
-  let poseLoopRunning = false;
+  let mpCamera = null; // instancia de la utilidad oficial @mediapipe/camera_utils
+  let previewLoopRunning = false;
+  let lastLandmarks = null; // últimos puntos del cuerpo que sí llegaron de la IA
+  let gotFirstPoseResult = false;
+  let poseWarnTimeoutId = null;
   let goodStreakFrames = 0;
   let badStreakFrames = 0;
   let confirmedGood = true;
@@ -405,6 +409,16 @@
       clearInterval(secondTickInterval);
       secondTickInterval = null;
     }
+    if (mpCamera) {
+      mpCamera.stop();
+      mpCamera = null;
+    }
+    if (poseWarnTimeoutId) {
+      clearTimeout(poseWarnTimeoutId);
+      poseWarnTimeoutId = null;
+    }
+    lastLandmarks = null;
+    gotFirstPoseResult = false;
     goodStreakFrames = 0;
     badStreakFrames = 0;
     badPostureSeconds = 0;
@@ -428,11 +442,29 @@
       }, 1000);
     }
 
-    initPoseIfNeeded();
-    if (!poseLoopRunning) {
-      poseLoopRunning = true;
-      requestAnimationFrame(poseLoop);
+    // Arreglo clave: dibujar la vista previa YA NO depende de que la IA
+    // responda (antes, drawPreview vivía adentro de onPoseResults, así
+    // que si la IA se atoraba, el recuadro se quedaba en negro para
+    // siempre, aunque la cámara sí estuviera funcionando). Ahora este
+    // ciclo dibuja el video en cada cuadro sin importar la IA, y encima
+    // superpone el esqueleto solo cuando SÍ hay resultados recientes.
+    if (!previewLoopRunning) {
+      previewLoopRunning = true;
+      requestAnimationFrame(drawPreview);
     }
+
+    initPoseIfNeeded();
+    startPoseProcessing();
+
+    // Si en unos segundos la IA no ha respondido ni una sola vez, avisa
+    // — la cámara se sigue viendo gracias a drawPreview, pero así sabes
+    // que la detección automática todavía no está activa.
+    gotFirstPoseResult = false;
+    poseWarnTimeoutId = setTimeout(() => {
+      if (!gotFirstPoseResult && cameraConnected) {
+        showCameraError('La cámara funciona, pero la IA todavía no detecta tu cuerpo. Asegúrate de verte de frente, con buena luz y de la cintura para arriba. Si el problema sigue, recarga la página (puede ser tu conexión a internet).');
+      }
+    }, 7000);
 
     // Si la placa del buzzer ya estaba conectada, avísale el estado actual
     // de una vez (en vez de esperar hasta 1 segundo al primer tick)
@@ -446,7 +478,7 @@
       return;
     }
     pose = new Pose({
-      locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`,
+      locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/${file}`,
     });
     pose.setOptions({
       modelComplexity: 1,
@@ -457,12 +489,43 @@
     pose.onResults(onPoseResults);
   }
 
-  function poseLoop() {
-    requestAnimationFrame(poseLoop);
-    if (!cameraConnected || !pose || webcamVideo.readyState < 2) return;
-    pose.send({ image: webcamVideo }).catch(() => {
-      // Si un cuadro falla lo saltamos, no interrumpimos el ciclo completo
+  // Le manda cuadros de video a la IA. Usa la utilidad oficial de MediaPipe
+  // (Camera), que espera a que termine de procesar un cuadro antes de
+  // mandar el siguiente. Arreglo: antes mandábamos un cuadro nuevo en
+  // CADA frame de pantalla (hasta 60 veces por segundo) sin esperar a que
+  // la IA terminara con el anterior — eso hacía que se acumularan cuadros
+  // sin procesar y la IA se quedara "atorada" sin volver a responder
+  // nunca, con la cámara pareciendo conectada pero sin hacer nada.
+  function startPoseProcessing() {
+    if (!pose || mpCamera) return;
+    if (typeof Camera === 'undefined') {
+      showCameraError('No se pudo cargar una pieza del motor de IA (camera_utils). Revisa tu conexión a internet y recarga la página.');
+      return;
+    }
+    mpCamera = new Camera(webcamVideo, {
+      onFrame: async () => {
+        if (pose) await pose.send({ image: webcamVideo });
+      },
+      width: 320,
+      height: 240,
     });
+    mpCamera.start();
+  }
+
+  // Dibuja la cámara en el recuadro en cada cuadro de pantalla — siempre,
+  // sin importar si la IA ya respondió o no — y encima el esqueleto, si
+  // ya tenemos puntos detectados recientes.
+  function drawPreview() {
+    requestAnimationFrame(drawPreview);
+    if (!cameraConnected || webcamVideo.readyState < 2) return;
+    poseCtx.save();
+    poseCtx.clearRect(0, 0, poseCanvas.width, poseCanvas.height);
+    poseCtx.drawImage(webcamVideo, 0, 0, poseCanvas.width, poseCanvas.height);
+    if (lastLandmarks && window.drawConnectors) {
+      drawConnectors(poseCtx, lastLandmarks, POSE_CONNECTIONS, { color: '#16c9c9', lineWidth: 2 });
+      drawLandmarks(poseCtx, lastLandmarks, { color: '#ff7a29', radius: 2 });
+    }
+    poseCtx.restore();
   }
 
   // ---------- Calibración: que la IA aprenda TU buena postura ----------
@@ -502,15 +565,14 @@
   }
 
   function onPoseResults(results) {
-    // Dibuja la vista previa con el esqueleto detectado encima
-    poseCtx.save();
-    poseCtx.clearRect(0, 0, poseCanvas.width, poseCanvas.height);
-    poseCtx.drawImage(results.image, 0, 0, poseCanvas.width, poseCanvas.height);
-    if (results.poseLandmarks && window.drawConnectors) {
-      drawConnectors(poseCtx, results.poseLandmarks, POSE_CONNECTIONS, { color: '#16c9c9', lineWidth: 2 });
-      drawLandmarks(poseCtx, results.poseLandmarks, { color: '#ff7a29', radius: 2 });
+    // Ya NO dibuja aquí (eso lo hace drawPreview, en cada cuadro de
+    // pantalla, sin depender de esto) — esta función solo guarda los
+    // puntos del cuerpo más recientes y decide buena/mala postura.
+    if (!gotFirstPoseResult) {
+      gotFirstPoseResult = true;
+      hideCameraError(); // por si alcanzó a mostrarse el aviso de "la IA no responde"
     }
-    poseCtx.restore();
+    lastLandmarks = results.poseLandmarks || null;
 
     if (!results.poseLandmarks) return;
 
