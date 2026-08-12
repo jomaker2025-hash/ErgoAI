@@ -42,10 +42,6 @@
   --gradient-attention: linear-gradient(135deg, var(--status-attention), #ffd166);
   --gradient-bad: linear-gradient(135deg, var(--status-bad), var(--pink));
 
-  /* Pista del medidor circular: un tono más claro del MISMO color (teal),
-     nunca un color distinto — así el medidor se lee como una sola escala */
-  --teal-track: rgba(22, 201, 201, 0.16);
-
   --radius-lg: 32px;
   --radius-md: 24px;
   --radius-sm: 16px;
@@ -654,22 +650,19 @@ body {
   align-items: stretch;
 }
 
-/* Tarjetas con "levantón" suave al pasar el mouse — sensación fluida */
-.status-card,
-.streak-module {
+/* Tarjeta con "levantón" suave al pasar el mouse — sensación fluida */
+.status-card {
   transition: transform 0.35s var(--ease-fluid), box-shadow 0.35s var(--ease-fluid);
 }
 
-.status-card:hover,
-.streak-module:hover {
+.status-card:hover {
   transform: translateY(-3px);
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
 }
 
-/* Brillo suave que sigue al cursor dentro de las tarjetas grandes.
+/* Brillo suave que sigue al cursor dentro de la tarjeta grande.
    --mx/--my los actualiza el JS en cada movimiento del mouse. */
-.status-card::after,
-.streak-module::after {
+.status-card::after {
   content: '';
   position: absolute;
   inset: 0;
@@ -679,14 +672,12 @@ body {
   pointer-events: none;
 }
 
-.status-card:hover::after,
-.streak-module:hover::after {
+.status-card:hover::after {
   opacity: 1;
 }
 
 /* El contenido real siempre pintado ENCIMA del brillo (que no lo tape) */
-.status-card > *,
-.streak-module > * {
+.status-card > * {
   position: relative;
   z-index: 1;
 }
@@ -811,28 +802,8 @@ body {
 }
 
 /* ============================================================
-   9. MÓDULO DE RACHA (aparte, estilo app de progreso/dieta)
+   9. Títulos compartidos por los módulos (historial, sesión, info)
    ============================================================ */
-.streak-module {
-  position: relative;
-  overflow: hidden;
-  margin-top: 24px;
-  background: var(--bg-elevated);
-  border: 1px solid var(--card-border);
-  border-radius: var(--radius-lg);
-  padding: 36px;
-  animation: fade-in 0.6s ease 0.1s both;
-}
-
-.streak-module-header {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-bottom: 32px;
-}
-
 .module-eyebrow {
   font-size: 0.7rem;
   text-transform: uppercase;
@@ -845,191 +816,6 @@ body {
   font-family: 'Sora', sans-serif;
   font-size: 1.3rem;
   font-weight: 700;
-}
-
-.streak-flame {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: rgba(255, 122, 41, 0.12);
-  color: var(--orange);
-  padding: 8px 14px;
-  border-radius: 999px;
-  font-size: 0.85rem;
-  font-weight: 600;
-}
-
-.streak-flame strong {
-  font-family: 'Sora', sans-serif;
-  color: var(--text-primary);
-}
-
-.streak-body {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 40px;
-  align-items: center;
-}
-
-/* ---- Medidor circular (Meter): una sola escala de color (teal).
-   La pista (track) es un tono más claro del MISMO color — nunca
-   usamos el degradado arcoíris aquí, porque este anillo sí
-   representa un dato real (% del día), no es solo decoración. ---- */
-.ring-wrap {
-  position: relative;
-  width: 160px;
-  height: 160px;
-  flex-shrink: 0;
-  margin: 0 auto;
-}
-
-.progress-ring {
-  width: 100%;
-  height: 100%;
-  transform: rotate(-90deg);
-}
-
-.ring-bg {
-  fill: none;
-  stroke: var(--teal-track);
-  stroke-width: 12;
-}
-
-.ring-progress {
-  fill: none;
-  stroke: var(--teal);
-  stroke-width: 12;
-  stroke-linecap: round;
-  transition: stroke-dashoffset 1.2s var(--ease-fluid);
-}
-
-.ring-center {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-}
-
-.ring-value {
-  font-family: 'Sora', sans-serif;
-  font-size: 2rem;
-  font-weight: 700;
-  color: var(--text-primary);
-}
-
-.ring-label {
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--text-secondary);
-  margin-top: 2px;
-}
-
-.streak-stats {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-  min-width: 0;
-}
-
-/* ---- Semana: franja de estado (status), no un mapa de calor de
-   magnitud — por eso usa colores de estado fijos (bueno/malo/vacío),
-   siempre acompañados de un ícono y la letra del día. ---- */
-.week-row {
-  display: flex;
-  gap: 8px;
-}
-
-.day-pill {
-  flex: 1;
-  aspect-ratio: 1;
-  border-radius: 14px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-  font-size: 0.7rem;
-  font-weight: 600;
-  color: var(--text-secondary);
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid var(--card-border);
-  opacity: 0;
-  transform: scale(0.7);
-  animation: pop-in 0.45s var(--ease-fluid) forwards;
-  animation-play-state: paused;
-  transition: transform 0.2s var(--ease-fluid), border-color 0.2s ease;
-}
-
-.app--visible .day-pill {
-  animation-play-state: running;
-}
-
-.day-pill:hover {
-  transform: scale(1.08);
-  border-color: rgba(255, 255, 255, 0.3);
-}
-
-.day-pill:nth-child(1) { animation-delay: 0.05s; }
-.day-pill:nth-child(2) { animation-delay: 0.1s; }
-.day-pill:nth-child(3) { animation-delay: 0.15s; }
-.day-pill:nth-child(4) { animation-delay: 0.2s; }
-.day-pill:nth-child(5) { animation-delay: 0.25s; }
-.day-pill:nth-child(6) { animation-delay: 0.3s; }
-.day-pill:nth-child(7) { animation-delay: 0.35s; }
-
-.day-pill .day-icon {
-  font-size: 0.8rem;
-  line-height: 1;
-}
-
-.day-pill.good {
-  background: var(--status-good-bg);
-  border-color: rgba(12, 163, 12, 0.4);
-  color: var(--text-primary);
-}
-
-.day-pill.bad {
-  background: var(--status-bad-bg);
-  border-color: rgba(208, 59, 59, 0.4);
-  color: var(--text-primary);
-}
-
-.day-pill.empty {
-  color: rgba(255, 255, 255, 0.3);
-}
-
-.streak-records {
-  display: flex;
-  gap: 32px;
-  flex-wrap: wrap;
-}
-
-.record {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.record-value {
-  font-family: 'Sora', sans-serif;
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: var(--text-primary);
-}
-
-.record-value small {
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--text-secondary);
-  margin-left: 2px;
-}
-
-.record-label {
-  font-size: 0.75rem;
-  color: var(--text-secondary);
 }
 
 /* ============================================================
@@ -1326,15 +1112,6 @@ body {
   font-size: 1.7rem;
 }
 
-.presentation-mode .ring-value {
-  font-size: 2.6rem;
-}
-
-.presentation-mode .streak-flame {
-  font-size: 1.1rem;
-  padding: 12px 20px;
-}
-
 .exit-presentation {
   position: fixed;
   top: 20px;
@@ -1451,15 +1228,6 @@ body {
   .status-value {
     font-size: 2.1rem;
   }
-  .streak-body {
-    grid-template-columns: 1fr;
-    justify-items: center;
-    text-align: center;
-    gap: 28px;
-  }
-  .streak-records {
-    justify-content: center;
-  }
   .info-grid {
     grid-template-columns: 1fr;
   }
@@ -1554,23 +1322,6 @@ body {
 
   .status-sub {
     font-size: 0.85rem;
-  }
-
-  .streak-module {
-    padding: 24px 18px;
-  }
-
-  .ring-wrap {
-    width: 130px;
-    height: 130px;
-  }
-
-  .ring-value {
-    font-size: 1.6rem;
-  }
-
-  .streak-records {
-    gap: 24px;
   }
 
   /* El botón demo se convierte en una barra fija abajo, fácil de tocar con el pulgar */

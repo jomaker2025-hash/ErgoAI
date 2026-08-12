@@ -169,49 +169,6 @@
       <p class="session-sub">Cada barra = 2 segundos reales. Se va llenando mientras tengas la cámara conectada.</p>
     </section>
 
-    <!-- ======================= MÓDULO DE RACHA (aparte) ======================= -->
-    <!-- Todo aquí lo pinta app.js con tus datos reales (renderFromStorage) en
-         cuanto carga la página — lo que ves abajo es solo el "molde" vacío. -->
-    <section class="streak-module" id="streakModule">
-      <div class="streak-module-header">
-        <div>
-          <p class="module-eyebrow">Tu progreso</p>
-          <h2 class="module-title">Racha de Buena Postura</h2>
-        </div>
-        <span class="streak-flame">🔥 <strong id="streakDays">0</strong>&nbsp;días seguidos</span>
-      </div>
-
-      <div class="streak-body">
-        <!-- Medidor circular: % del día en buena postura -->
-        <div class="ring-wrap">
-          <svg class="progress-ring" viewBox="0 0 160 160">
-            <circle class="ring-bg" cx="80" cy="80" r="70" />
-            <circle class="ring-progress" id="ringProgress" cx="80" cy="80" r="70" />
-          </svg>
-          <div class="ring-center">
-            <span class="ring-value" id="ringValue">0%</span>
-            <span class="ring-label">Hoy</span>
-          </div>
-        </div>
-
-        <div class="streak-stats">
-          <!-- Semana: qué días tuvo buena postura — se llena con renderWeekRow() -->
-          <div class="week-row" id="weekRow"></div>
-
-          <div class="streak-records">
-            <div class="record">
-              <span class="record-value" id="recordToday">0<small>min</small></span>
-              <span class="record-label">Mejor racha de hoy</span>
-            </div>
-            <div class="record">
-              <span class="record-value" id="recordHistoric">0<small>días</small></span>
-              <span class="record-label">Racha histórica</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
     <!-- ======================= HISTORIAL (aparte) ======================= -->
     <section class="history-module" id="historyModule">
       <div class="history-header">
@@ -266,14 +223,14 @@
           <span class="info-icon">📉</span>
           <h3>Problemas a largo plazo</h3>
           <p>Años de mala postura pueden derivar en problemas posturales permanentes, difíciles de revertir.</p>
-          <p class="info-solution"><strong>ErgoAI:</strong> una racha real, día a día, ayuda a convertir la buena postura en hábito — no en un esfuerzo consciente.</p>
+          <p class="info-solution"><strong>ErgoAI:</strong> el historial de los últimos 7 días te muestra el patrón real, día a día, para convertir la buena postura en hábito — no en un esfuerzo consciente.</p>
         </article>
       </div>
     </section>
 
     <footer class="footer">
       <p>ErgoAI © 2026 — Proyecto Kesta GHS</p>
-      <p class="version-tag">Kesta 8 · 3 estados reales, placa obligatoria &amp; sesión en vivo</p>
+      <p class="version-tag">Kesta 10 · sesión en vivo sin parpadeos &amp; modo escritorio robusto</p>
     </footer>
   </div>
 

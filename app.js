@@ -1,5 +1,5 @@
 /* ============================================================
-   ErgoAI — Lógica de la aplicación (Kesta 8)
+   ErgoAI — Lógica de la aplicación (Kesta 10)
    ------------------------------------------------------------
    Este archivo maneja:
    1. La pantalla de carga (splash)
@@ -10,10 +10,12 @@
       directo en tu navegador — no hay servidor externo. Usa 3
       señales reales (hombros, cadera, cabeza) y calibración
       personal, y clasifica en 3 estados: buena / atención / mala.
-   4. El cálculo REAL de racha / progreso, guardado en este
+   4. El historial de los últimos 7 días, guardado en este
       navegador (localStorage). Si limpias los datos del navegador
       o usas otra computadora, se reinicia — es una limitación
-      honesta de esta versión sin servidor propio.
+      honesta de esta versión sin servidor propio. (El módulo de
+      racha por días se quitó en Kesta 10: se volvía a dibujar
+      entero cada segundo y eso se veía como un parpadeo constante.)
    5. La sesión en vivo: línea de tiempo de los últimos minutos,
       pensada para que aunque acabes de conectarte veas algo real.
    6. Pintar todo eso en la interfaz (tooltips propios, toasts).
@@ -47,13 +49,6 @@
   const calibrateRow = document.getElementById('calibrateRow');
   const calibrateBtn = document.getElementById('calibrateBtn');
   const calibrateStatus = document.getElementById('calibrateStatus');
-
-  const ringProgress = document.getElementById('ringProgress');
-  const ringValueEl = document.getElementById('ringValue');
-  const streakDaysEl = document.getElementById('streakDays');
-  const recordTodayEl = document.getElementById('recordToday');
-  const recordHistoricEl = document.getElementById('recordHistoric');
-  const weekRow = document.getElementById('weekRow');
 
   // ---------- Kesta 8: sesión en vivo, toast, tooltip compartido ----------
   const sessionModule = document.getElementById('sessionModule');
@@ -168,16 +163,6 @@
     requestAnimationFrame(tick);
   }
 
-  const RING_RADIUS = 70;
-  const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
-  ringProgress.style.strokeDasharray = `${RING_CIRCUMFERENCE}`;
-  ringProgress.style.strokeDashoffset = `${RING_CIRCUMFERENCE}`;
-
-  function setRingPercent(percent) {
-    const clamped = Math.max(0, Math.min(100, percent));
-    ringProgress.style.strokeDashoffset = `${RING_CIRCUMFERENCE * (1 - clamped / 100)}`;
-  }
-
   // ============================================================
   // 1. PANTALLA DE CARGA
   // ============================================================
@@ -196,7 +181,7 @@
   else window.addEventListener('load', reveal);
 
   // ============================================================
-  // 2. HISTORIAL Y RACHA REAL (guardado en localStorage)
+  // 2. HISTORIAL REAL (últimos 7 días, guardado en localStorage)
   // ============================================================
   const STORAGE_KEY = 'ergoai_history_v1';
 
@@ -212,12 +197,11 @@
   }
 
   let history = loadHistory();
-  let currentStreakSeconds = 0; // racha actual sin cortes de mala postura
 
   function ensureToday() {
     const key = todayKey();
     if (!history[key]) {
-      history[key] = { goodSeconds: 0, attentionSeconds: 0, totalSeconds: 0, bestStreakSeconds: 0 };
+      history[key] = { goodSeconds: 0, attentionSeconds: 0, totalSeconds: 0 };
     } else if (history[key].attentionSeconds === undefined) {
       history[key].attentionSeconds = 0; // datos guardados antes de que existiera este campo
     }
@@ -225,21 +209,14 @@
   }
 
   // Se llama una vez por segundo mientras la cámara está conectada.
-  // "state" es 'good' | 'attention' | 'bad' — la racha diaria solo cuenta
-  // 'good' como buena postura (igual que antes); 'attention' no rompe la
-  // racha del día pero tampoco suma, queda guardado aparte para el futuro.
+  // "state" es 'good' | 'attention' | 'bad'.
   function recordSample(state) {
     const day = ensureToday();
     day.totalSeconds += 1;
     if (state === 'good') {
       day.goodSeconds += 1;
-      currentStreakSeconds += 1;
-      if (currentStreakSeconds > day.bestStreakSeconds) {
-        day.bestStreakSeconds = currentStreakSeconds;
-      }
-    } else {
-      currentStreakSeconds = 0;
-      if (state === 'attention') day.attentionSeconds += 1;
+    } else if (state === 'attention') {
+      day.attentionSeconds += 1;
     }
     saveHistory(history);
     renderFromStorage();
@@ -248,86 +225,14 @@
     recordSessionPoint(state);
   }
 
-  // Un día cuenta como "bueno" si al menos el 50% del tiempo medido fue buena postura
-  function isGoodDay(day) {
-    return !!day && day.totalSeconds > 0 && day.goodSeconds / day.totalSeconds >= 0.5;
-  }
-
-  function consecutiveGoodDays() {
-    let count = 0;
-    const cursor = new Date();
-    for (let i = 0; i < 365; i++) {
-      const key = todayKey(cursor);
-      if (!isGoodDay(history[key])) break;
-      count += 1;
-      cursor.setDate(cursor.getDate() - 1);
-    }
-    return count;
-  }
-
-  function bestHistoricStreakDays() {
-    const keys = Object.keys(history).sort();
-    let best = 0, run = 0, prevDate = null;
-    keys.forEach((key) => {
-      const date = new Date(key);
-      if (isGoodDay(history[key])) {
-        run = prevDate && date - prevDate === 86400000 ? run + 1 : 1;
-        best = Math.max(best, run);
-      } else {
-        run = 0;
-      }
-      prevDate = date;
-    });
-    return best;
-  }
-
+  // Kesta 10: se quitó el módulo "Tu progreso" (racha de días) — el anillo,
+  // los días de la semana y los récords se volvían a dibujar desde cero
+  // cada segundo mientras la cámara estaba conectada, y eso reiniciaba sus
+  // animaciones de entrada una y otra vez (se veía como un tembleque
+  // constante). El historial de los últimos 7 días (abajo) sigue 100%
+  // real, usa los mismos datos guardados, y ya no tiene ese problema.
   function renderFromStorage() {
-    const day = ensureToday();
-    const percentToday = day.totalSeconds > 0 ? Math.round((day.goodSeconds / day.totalSeconds) * 100) : 0;
-
-    setRingPercent(percentToday);
-    animateValue(ringValueEl, percentToday, 900, '%');
-    animateValue(recordTodayEl, Math.round(day.bestStreakSeconds / 60), 700, ' min');
-    animateValue(recordHistoricEl, bestHistoricStreakDays(), 700, ' días');
-    streakDaysEl.textContent = consecutiveGoodDays();
-
-    renderWeekRow();
     renderHistoryChart();
-  }
-
-  function renderWeekRow() {
-    weekRow.innerHTML = '';
-    const dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-    const dayLetters = ['D', 'L', 'M', 'M', 'J', 'V', 'S']; // Date.getDay(): 0 = domingo
-    const today = new Date();
-    const monday = new Date(today);
-    monday.setDate(today.getDate() - ((today.getDay() + 6) % 7)); // lunes de esta semana
-
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(monday);
-      d.setDate(monday.getDate() + i);
-      const key = todayKey(d);
-      const day = history[key];
-      const isFuture = key > todayKey(today);
-
-      const pill = document.createElement('div');
-      pill.className = 'day-pill';
-      const letter = dayLetters[d.getDay()];
-      const name = dayNames[d.getDay()];
-
-      if (isFuture || !day || day.totalSeconds === 0) {
-        pill.classList.add('empty');
-        pill.dataset.tooltip = `${name}: sin datos todavía`;
-        pill.textContent = letter;
-      } else {
-        const ratio = day.goodSeconds / day.totalSeconds;
-        const good = ratio >= 0.5;
-        pill.classList.add(good ? 'good' : 'bad');
-        pill.dataset.tooltip = `${name}: ${Math.round(ratio * 100)}% en buena postura`;
-        pill.innerHTML = `<span class="day-icon">${good ? '✓' : '✕'}</span>${letter}`;
-      }
-      weekRow.appendChild(pill);
-    }
   }
 
   // ============================================================
@@ -372,8 +277,6 @@
     });
   }
   attachCursorGlow(statusCard);
-  attachCursorGlow(document.getElementById('streakModule'));
-  bindTooltip(weekRow);
   bindTooltip(barChart);
   bindTooltip(sessionStrip);
 

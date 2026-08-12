@@ -16,8 +16,7 @@ Artificial de detección de pose (**MediaPipe Pose**, de Google) — corriendo c
 del navegador, sin enviar video a ningún servidor — para leer 3 señales de tu cuerpo
 (inclinación de hombros, inclinación de cadera y qué tan alta está tu cabeza) y clasificar
 tu postura en **3 estados reales: buena, dudosa (atención) o mala**. Te avisa en pantalla,
-con sonido, con una placa física (LED + buzzer), lleva tu racha de buena postura, y guarda
-tu historial.
+con sonido, con una placa física (LED + buzzer), y guarda tu historial de los últimos días.
 
 Además, se conecta por **cable USB** a una placa con un LED RGB y un buzzer (una
 IdeaBoard) — **requerida para la demo de la feria**: luz verde = buena postura, luz
@@ -35,9 +34,8 @@ IdeaBoard) — **requerida para la demo de la feria**: luz verde = buena postura
 - 📈 **Sesión en vivo**: línea de tiempo en tiempo real de los últimos minutos de tu
   conexión — pensada para que aunque acabes de conectarte (como en la feria) veas datos
   genuinos, sin necesitar días de historial acumulado.
-- 🔥 **Racha en tiempo real**: contador de días seguidos y porcentaje del día en buena
-  postura, calculado con datos reales (guardado en `localStorage`).
-- 📊 **Historial**: gráfica de los últimos 7 días, con tooltips propios y vista en tabla.
+- 📊 **Historial**: gráfica de los últimos 7 días, con tooltips propios y vista en tabla —
+  datos reales, guardados en `localStorage`.
 - 🔔 **Alertas**: sonido + notificación cuando llevas tiempo prolongado en mala
   postura, y recordatorios de pausas activas cada 30 minutos.
 - 🔌 **Alerta física (requerida en la feria)**: LED + buzzer en una IdeaBoard aparte,
@@ -69,7 +67,7 @@ IdeaBoard) — **requerida para la demo de la feria**: luz verde = buena postura
 ErgoAI/
 ├── index.html              # Estructura de la página
 ├── style.css                # Todo el diseño visual
-├── app.js                   # Lógica: IA, cámara, racha, notificaciones, buzzer
+├── app.js                   # Lógica: IA, cámara, historial, notificaciones, buzzer
 ├── manifest.json             # Para poder "instalar" la página como app
 ├── assets/                   # Logo e íconos
 ├── hardware/
@@ -115,7 +113,7 @@ Para usarlo:
 
 Esto usa la **Web Serial API**, disponible solo en Chrome/Edge de computadora (no en
 celular, no en Firefox/Safari) — por eso el modo escritorio en Python (abajo) existe
-como alternativa en esos casos. El resto de ErgoAI (cámara, IA, racha, historial)
+como alternativa en esos casos. El resto de ErgoAI (cámara, IA, historial)
 funciona completo incluso sin la placa conectada.
 
 > `hardware/esp32cam_stream/` es una versión anterior del proyecto (cámara dedicada
