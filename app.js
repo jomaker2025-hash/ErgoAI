@@ -989,10 +989,19 @@
 
   // Solo manda un comando por el cable cuando SÍ cambió, para no saturar
   // el puerto serial mandando la misma palabra decenas de veces por segundo.
+  //
+  // Arreglo: antes mandábamos el comando terminado solo en "\n". La placa
+  // corre CircuitPython y lee los comandos con input(), que espera un
+  // retorno de carro ("\r") para saber que la línea terminó — igual que
+  // hace desktop/posture_detector.py, que manda "\r\n" y sí funciona. Sin
+  // el "\r", el comando se queda esperando en el buffer para siempre: la
+  // conexión se ve sana (no hay error, no se desconecta) pero la placa
+  // nunca llega a procesar nada. Por eso el LED/buzzer no reaccionaban
+  // desde la página web aunque la tarjeta en pantalla sí cambiaba bien.
   function sendHwCommand(cmd) {
     if (!hwWriter || cmd === lastHwCommand) return;
     lastHwCommand = cmd;
-    hwWriter.write(cmd + '\n').catch(() => {
+    hwWriter.write(cmd + '\r\n').catch(() => {
       // Lo más probable es que se desconectó el cable a medio camino
       disconnectHardware();
     });
@@ -1040,7 +1049,7 @@
     navigator.serial.removeEventListener('disconnect', handleHwUnplugged);
     try {
       if (hwWriter) {
-        await hwWriter.write('OFF\n').catch(() => {});
+        await hwWriter.write('OFF\r\n').catch(() => {});
         hwWriter.releaseLock();
       }
       if (hwWritableClosed) await hwWritableClosed.catch(() => {});
