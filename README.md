@@ -79,7 +79,9 @@ ErgoAI/
 │       └── esp32cam_stream.ino
 └── desktop/
     ├── posture_detector.py       # Modo escritorio: cámara + IA + buzzer, en Python
-    └── requirements.txt
+    ├── requirements.txt
+    ├── calibracion.json          # (se genera solo, no se sube) tu calibración guardada
+    └── ergoai_log.jsonl          # (se genera solo, no se sube) registro de la sesión
 ```
 
 ## Cómo correrlo localmente
@@ -121,20 +123,36 @@ funciona completo incluso sin la placa conectada.
 > se dejó en el repositorio como referencia. Si algún día la vuelves a usar, recuerda
 > nunca subir tu contraseña real de WiFi a un repositorio público.
 
-## Modo escritorio (Kesta 7)
+## Modo escritorio (Kesta 9)
 
-`desktop/posture_detector.py` es un programa aparte en Python: abre la cámara con
-OpenCV, detecta tu postura con MediaPipe Pose usando **tres señales** (inclinación de
-hombros, inclinación de cadera, y qué tan alta está tu cabeza respecto a tus hombros),
-muestra una ventana con el esqueleto dibujado encima, y le manda el resultado a la
-IdeaBoard por el mismo cable USB.
+`desktop/posture_detector.py` es un programa aparte en Python, pensado para dejarlo
+corriendo sin supervisión en la mesa de la feria: abre la cámara con OpenCV, detecta tu
+postura con MediaPipe Pose usando **7 señales** (inclinación de hombros, inclinación de
+cadera, altura de la cabeza, cabeza adelantada hacia la pantalla, hombros
+encorvados/reclinados, inclinación lateral del torso, y espalda encorvada/joroba),
+muestra una ventana con el esqueleto y el detalle de qué está mal, y le manda el
+resultado a la IdeaBoard por el mismo cable USB.
 
 Es una alternativa a controlar el buzzer desde la página web — no necesita navegador,
-y es una buena opción para dejar corriendo en la mesa de la feria con su propia
-ventana. Usa el mismo protocolo de texto (`GOOD`/`ATTENTION`/`BAD`/`OFF`) que
-`hardware/ideaboard_buzzer/code.py` ya entiende, así que **cualquiera de los dos**
-—la web o este script— puede controlar la placa, pero no los dos al mismo tiempo (el
-puerto USB solo lo puede tener abierto un programa a la vez).
+y es la opción recomendada para la mesa de la feria. Usa el mismo protocolo de texto
+(`GOOD`/`ATTENTION`/`BAD`/`OFF`) que `hardware/ideaboard_buzzer/code.py` ya entiende,
+así que **cualquiera de los dos** —la web o este script— puede controlar la placa, pero
+no los dos al mismo tiempo (el puerto USB solo lo puede tener abierto un programa a la vez).
+
+Pensado para correr solo, sin que nadie esté pendiente:
+- **Calibración que se guarda sola**: presiona `c` con buena postura y queda guardada
+  en `desktop/calibracion.json` — la próxima vez que abras el script ya la carga sola,
+  no hay que repetirla cada vez.
+- **Filtra el temblor de la cámara**: cada métrica se suaviza con la mediana de los
+  últimos 8 cuadros, y un cambio de estado necesita 3 lecturas seguidas antes de
+  confirmarse — así un parpadeo de un instante no manda un estado falso a la placa.
+- **Se reconecta solo**: si se pierde la señal de la cámara o el cable de la
+  IdeaBoard se desconecta, reintenta solo cada pocos segundos en vez de cerrarse.
+- **Se cierra bien**: detecta si cierras la ventana con la X (no solo con ESC/Q), y
+  siempre apaga el buzzer y libera la cámara al salir, incluso si algo falla a medio camino.
+- **Registro de la sesión**: cada cambio de estado (con sus métricas y motivos) y un
+  resumen final (cuánto tiempo en cada estado) se guardan en `desktop/ergoai_log.jsonl`
+  — pensado como paso intermedio para más adelante conectarlo con el dashboard web.
 
 Para correrlo:
 
@@ -146,9 +164,9 @@ python posture_detector.py
 
 Antes de correrlo, revisa que la constante `PUERTO` al inicio del archivo tenga el
 COM correcto de tu IdeaBoard (Administrador de dispositivos → Puertos (COM y LPT), en
-Windows). Si el puerto está mal o alguien más lo tiene abierto, el programa ahora te
-lo dice claro y te muestra qué puertos sí están disponibles, en vez de cerrarse con un
-error críptico. Para salir, con la ventana de la cámara activa, presiona `ESC`.
+Windows). Si el puerto está mal o alguien más lo tiene abierto, el programa te lo dice
+claro en vez de cerrarse con un error críptico. Para salir: `ESC`, `Q`, o cerrar la
+ventana con la X — cualquiera de las tres apaga bien el buzzer antes de terminar.
 
 ---
 

@@ -4,6 +4,11 @@ __pycache__/
 .venv/
 venv/
 
+# Generados por desktop/posture_detector.py — datos de CADA persona/sesión,
+# no deben subirse al repo público.
+desktop/calibracion.json
+desktop/ergoai_log.jsonl
+
 # Editor/OS
 .DS_Store
 Thumbs.db
