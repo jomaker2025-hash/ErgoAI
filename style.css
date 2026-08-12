@@ -24,14 +24,23 @@
   /* Degradados reutilizables (decorativos: logo, splash, bordes — NO para
      codificar valores de datos, ahí usamos un solo color, ver sección 8) */
   --gradient-main: linear-gradient(135deg, var(--teal), var(--orange), var(--pink), var(--purple));
-  --gradient-good: linear-gradient(135deg, var(--teal), #4bdc8a);
-  --gradient-bad: linear-gradient(135deg, var(--coral), var(--pink));
 
-  /* Colores de "estado" (status) — significado fijo, siempre van con ícono + texto */
-  --status-good: var(--teal);
-  --status-bad: var(--coral);
-  --status-good-bg: rgba(22, 201, 201, 0.14);
-  --status-bad-bg: rgba(255, 77, 106, 0.14);
+  /* Colores de "estado" (status) de la postura: verde/ámbar/rojo, el mismo
+     significado que las luces de la placa física. A propósito NO son los
+     colores de marca (teal/naranja/coral) — son un trío aparte, elegido y
+     verificado para que se distingan bien incluso con daltonismo (con la
+     herramienta scripts/validate_palette.js del skill de dataviz). Siempre
+     van acompañados de ícono + texto, nunca dependen solo del color. */
+  --status-good: #0ca30c;
+  --status-attention: #fab219;
+  --status-bad: #d03b3b;
+  --status-good-bg: rgba(12, 163, 12, 0.14);
+  --status-attention-bg: rgba(250, 178, 25, 0.14);
+  --status-bad-bg: rgba(208, 59, 59, 0.14);
+
+  --gradient-good: linear-gradient(135deg, var(--status-good), #4bdc8a);
+  --gradient-attention: linear-gradient(135deg, var(--status-attention), #ffd166);
+  --gradient-bad: linear-gradient(135deg, var(--status-bad), var(--pink));
 
   /* Pista del medidor circular: un tono más claro del MISMO color (teal),
      nunca un color distinto — así el medidor se lee como una sola escala */
@@ -154,6 +163,12 @@ body {
   opacity: 0;
   transform: translateY(10px);
   transition: opacity 0.7s var(--ease-fluid), transform 0.7s var(--ease-fluid);
+  /* Este es un panel de control, no una página de texto — nada aquí está
+     pensado para copiarse. Evita que arrastrar el mouse deje texto
+     seleccionado en azul encima de las tarjetas/gráficas (se ve poco
+     pulido, sobre todo en modo presentación frente a los jueces). */
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .app.app--visible {
@@ -412,6 +427,22 @@ body {
   gap: 14px;
 }
 
+/* Insignia "Requerida en la feria" junto al título de la placa */
+.required-badge {
+  display: inline-block;
+  vertical-align: middle;
+  margin-left: 8px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--status-attention);
+  background: var(--status-attention-bg);
+  border: 1px solid rgba(250, 178, 25, 0.35);
+  padding: 3px 9px;
+  border-radius: 999px;
+}
+
 .btn-connect:disabled {
   opacity: 0.5;
   cursor: default;
@@ -527,6 +558,94 @@ body {
   left: -9999px;
 }
 
+/* ============================================================
+   6c. SESIÓN EN VIVO — línea de tiempo en tiempo real
+   ------------------------------------------------------------
+   Esto SÍ es un dato real (no decorativo): cada barra representa un
+   estado de postura verdadero, capturado hace segundos. Por eso usa
+   los mismos 3 colores de "estado" fijos que la tarjeta grande y la
+   placa física — nunca el degradado arcoíris de marca — y siempre
+   con la leyenda de ícono + texto al lado, nunca solo el color.
+   ============================================================ */
+.session-module {
+  margin-top: 24px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-lg);
+  padding: 28px 32px;
+  animation: fade-in 0.6s ease 0.05s both;
+}
+
+.session-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.session-legend {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.legend-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.legend-dot.good { background: var(--status-good); }
+.legend-dot.attention { background: var(--status-attention); }
+.legend-dot.bad { background: var(--status-bad); }
+
+.session-strip {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 56px;
+  padding: 4px;
+  background: var(--bg);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.session-strip .session-empty {
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  margin: auto;
+}
+
+.session-tick {
+  flex: 1 0 3px;
+  max-width: 6px;
+  height: 100%;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.08); /* sin datos todavía en ese instante */
+  transition: background 0.2s ease;
+}
+
+.session-tick.good { background: var(--status-good); }
+.session-tick.attention { background: var(--status-attention); }
+.session-tick.bad { background: var(--status-bad); }
+
+.session-sub {
+  margin-top: 10px;
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+}
+
 /* ---------- 7. Grid principal del dashboard ---------- */
 .dashboard {
   display: grid;
@@ -606,6 +725,10 @@ body {
   pointer-events: none;
 }
 
+.status-card.attention::before {
+  background: var(--gradient-attention);
+}
+
 .status-card.bad::before {
   background: var(--gradient-bad);
 }
@@ -665,6 +788,13 @@ body {
   background-clip: text;
   -webkit-text-fill-color: transparent;
   transition: background 0.4s ease;
+}
+
+.status-card.attention .status-value {
+  background: var(--gradient-attention);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 .status-card.bad .status-value {
@@ -857,13 +987,13 @@ body {
 
 .day-pill.good {
   background: var(--status-good-bg);
-  border-color: rgba(22, 201, 201, 0.4);
+  border-color: rgba(12, 163, 12, 0.4);
   color: var(--text-primary);
 }
 
 .day-pill.bad {
   background: var(--status-bad-bg);
-  border-color: rgba(255, 77, 106, 0.4);
+  border-color: rgba(208, 59, 59, 0.4);
   color: var(--text-primary);
 }
 
@@ -1039,6 +1169,83 @@ body {
   letter-spacing: 0.08em;
 }
 
+/* ============================================================
+   9c. SECCIÓN EDUCATIVA (aislada) — problemas de postura y cómo
+   ErgoAI ayuda con cada uno. Contenido fijo, sin datos ni cámara.
+   ============================================================ */
+.info-module {
+  margin-top: 24px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-lg);
+  padding: 36px;
+  animation: fade-in 0.6s ease 0.2s both;
+}
+
+.info-header {
+  max-width: 620px;
+  margin-bottom: 28px;
+}
+
+.info-intro {
+  margin-top: 10px;
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 18px;
+}
+
+.info-card {
+  background: var(--bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-sm);
+  padding: 20px;
+  transition: transform 0.3s var(--ease-fluid), border-color 0.3s ease;
+}
+
+.info-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.info-icon {
+  font-size: 1.6rem;
+  display: block;
+  margin-bottom: 10px;
+}
+
+.info-card h3 {
+  font-family: 'Sora', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.info-card p {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.info-card .info-solution {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--card-border);
+  color: var(--text-primary);
+}
+
+.info-card .info-solution strong {
+  background: var(--gradient-main);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
 /* ---------- 10. Footer ---------- */
 .footer {
   text-align: center;
@@ -1149,6 +1356,62 @@ body {
   transform: translateY(-2px);
 }
 
+/* ============================================================
+   11c. AVISO FLOTANTE (toast) — mensajes cortos y temporales,
+   como recordar conectar la placa antes de entrar a modo
+   presentación. No bloquea nada, se esconde solo.
+   ============================================================ */
+.toast {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  z-index: 200;
+  max-width: min(90vw, 420px);
+  background: var(--bg-elevated);
+  border: 1px solid rgba(250, 178, 25, 0.4);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  line-height: 1.4;
+  padding: 12px 18px;
+  border-radius: 14px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+  opacity: 0;
+  transform: translate(-50%, -12px);
+  transition: opacity 0.3s var(--ease-fluid), transform 0.3s var(--ease-fluid);
+  pointer-events: none;
+}
+
+.toast.show {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+/* ============================================================
+   11d. TOOLTIP COMPARTIDO — para el historial, la semana y la
+   sesión en vivo. Reemplaza el tooltip nativo del navegador
+   (lento y con estilo inconsistente) por uno propio.
+   ============================================================ */
+.chart-tooltip {
+  position: fixed;
+  z-index: 210;
+  transform: translate(-50%, -100%);
+  background: var(--bg);
+  border: 1px solid var(--card-border);
+  color: var(--text-primary);
+  font-size: 0.75rem;
+  white-space: nowrap;
+  padding: 7px 12px;
+  border-radius: 8px;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.chart-tooltip.show {
+  opacity: 1;
+}
+
 /* ---------- 12. Animaciones ---------- */
 @keyframes pulse {
   0%, 100% { opacity: 1; }
@@ -1196,6 +1459,9 @@ body {
   }
   .streak-records {
     justify-content: center;
+  }
+  .info-grid {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -1361,5 +1627,24 @@ body {
 
   .presentation-mode .status-sub {
     font-size: 1rem;
+  }
+
+  .session-module,
+  .info-module {
+    padding: 20px 18px;
+  }
+
+  .session-strip {
+    height: 44px;
+  }
+
+  .info-card {
+    padding: 16px;
+  }
+
+  .toast {
+    top: 12px;
+    font-size: 0.8rem;
+    padding: 10px 14px;
   }
 }

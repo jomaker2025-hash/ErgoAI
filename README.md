@@ -13,33 +13,42 @@ Proyecto de la feria científica — Equipo **Kesta**, GHS.
 ErgoAI observa tu postura a través de **la cámara de tu propio dispositivo** (computadora,
 tablet o celular — la que ya tienes, sin hardware extra) y usa un modelo de Inteligencia
 Artificial de detección de pose (**MediaPipe Pose**, de Google) — corriendo completo dentro
-del navegador, sin enviar video a ningún servidor — para calcular el ángulo entre tu oreja
-y tu hombro. Si ese ángulo se abre demasiado (cabeza hacia adelante), el sistema detecta
-"mala postura" y te avisa, lleva tu racha de buena postura, y guarda tu historial.
+del navegador, sin enviar video a ningún servidor — para leer 3 señales de tu cuerpo
+(inclinación de hombros, inclinación de cadera y qué tan alta está tu cabeza) y clasificar
+tu postura en **3 estados reales: buena, dudosa (atención) o mala**. Te avisa en pantalla,
+con sonido, con una placa física (LED + buzzer), lleva tu racha de buena postura, y guarda
+tu historial.
 
-Como plus, opcionalmente puedes conectar por **cable USB** una placa con un LED RGB y un
-buzzer (una IdeaBoard), que se enciende en rojo y suena cuando llevas rato en mala postura
-— una alerta física, además de la de pantalla.
+Además, se conecta por **cable USB** a una placa con un LED RGB y un buzzer (una
+IdeaBoard) — **requerida para la demo de la feria**: luz verde = buena postura, luz
+ámbar = postura dudosa, luz roja + buzzer = mala postura.
 
 ## Funciones principales
 
 - 📷 **Cámara universal**: funciona con la cámara de cualquier computadora, tablet o
   celular. No necesita IP, ni red WiFi especial, ni instalar nada — solo abrir el link
   y dar permiso de cámara.
-- 🎯 **Calibración personal**: en vez de un ángulo genérico, el sistema aprende TU
-  propia postura correcta.
+- 🎯 **Calibración personal**: en vez de un número genérico, el sistema aprende TU
+  propia postura correcta (3 señales: hombros, cadera y cabeza).
+- 🚦 **3 estados reales**: buena / atención / mala postura — no solo bueno-o-malo — los
+  mismos 3 que ve reflejados la placa física.
+- 📈 **Sesión en vivo**: línea de tiempo en tiempo real de los últimos minutos de tu
+  conexión — pensada para que aunque acabes de conectarte (como en la feria) veas datos
+  genuinos, sin necesitar días de historial acumulado.
 - 🔥 **Racha en tiempo real**: contador de días seguidos y porcentaje del día en buena
   postura, calculado con datos reales (guardado en `localStorage`).
-- 📊 **Historial**: gráfica de los últimos 7 días.
+- 📊 **Historial**: gráfica de los últimos 7 días, con tooltips propios y vista en tabla.
 - 🔔 **Alertas**: sonido + notificación cuando llevas tiempo prolongado en mala
   postura, y recordatorios de pausas activas cada 30 minutos.
-- 🔌 **Alerta física opcional**: LED + buzzer en una placa aparte, conectada por USB
-  (ve la sección de Hardware).
+- 🔌 **Alerta física (requerida en la feria)**: LED + buzzer en una IdeaBoard aparte,
+  conectada por USB (ve la sección de Hardware).
 - 🖥️ **Modo presentación**: pantalla completa pensada para mostrar el proyecto a los
-  jueces.
+  jueces — avisa si falta conectar la cámara o la placa antes de entrar.
 - 🖥️🐍 **Modo escritorio (Python)**: un programa aparte con OpenCV que detecta la
-  postura con 3 señales (hombros, cadera y cabeza) y también controla el buzzer —
-  ideal para la mesa de la feria (ve `desktop/`).
+  postura con las mismas 3 señales y también controla el buzzer — ideal para la mesa
+  de la feria (ve `desktop/`).
+- 📖 **Sección educativa**: qué problemas causa la mala postura y cómo ayuda cada
+  función de ErgoAI.
 - 📱 Diseño responsivo — funciona en computadora, tablet y celular.
 
 ## Tecnología
@@ -50,7 +59,7 @@ buzzer (una IdeaBoard), que se enciende en rojo y suena cuando llevas rato en ma
 | Detección de postura (web) | [MediaPipe Pose](https://developers.google.com/mediapipe) (corre en el navegador) |
 | Detección de postura (escritorio) | MediaPipe Pose + OpenCV, en Python (`desktop/`) |
 | Cámara | La del propio dispositivo, vía `getUserMedia` (web) u OpenCV (escritorio) |
-| Alerta física (opcional) | IdeaBoard (CircuitPython), por USB — desde el navegador (Web Serial API) o desde Python (`pyserial`) |
+| Alerta física (requerida en feria) | IdeaBoard (CircuitPython), por USB — desde el navegador (Web Serial API) o desde Python (`pyserial`) |
 | Guardado de progreso | `localStorage` del navegador (sin servidor/base de datos) |
 | Hosting | GitHub Pages |
 
@@ -84,23 +93,28 @@ python -m http.server 8000
 Y abre `http://localhost:8000` en tu navegador. La cámara solo funciona en `https://`
 o en `localhost` — es una regla de seguridad de los navegadores, no un error nuestro.
 
-## Hardware: alerta física (opcional)
+## Hardware: alerta física (requerida en la feria)
 
 `hardware/ideaboard_buzzer/code.py` es el programa que corre **dentro de la placa**
 (una IdeaBoard con CircuitPython, con un LED RGB y un buzzer conectado a `IO4`). Se
 queda esperando comandos de texto por el cable USB (`GOOD`, `ATTENTION`, `BAD`, `OFF`)
-y según cuál reciba, prende el LED de un color y activa o no el buzzer.
+y según cuál reciba, prende el LED de un color y activa o no el buzzer:
+
+- `GOOD` → luz verde, buzzer apagado.
+- `ATTENTION` → luz ámbar, buzzer apagado (postura dudosa — aviso temprano).
+- `BAD` → luz roja + buzzer sonando (mala postura).
 
 Para usarlo:
 1. Conecta la placa a la computadora por USB (con `code.py` ya cargado en ella).
 2. En ErgoAI, abre la cámara normalmente.
-3. En la sección "🔌 Alerta física (opcional)", dale clic a **Conectar placa** y elige
+3. En la sección "🔌 Placa de alerta física", dale clic a **Conectar placa** y elige
    el puerto de la placa en la ventana que abre el navegador.
-4. Listo — el LED y el buzzer van a reflejar tu postura en tiempo real.
+4. Listo — el LED y el buzzer reflejan tu postura real en tiempo real, sin retraso.
 
 Esto usa la **Web Serial API**, disponible solo en Chrome/Edge de computadora (no en
-celular, no en Firefox/Safari). Sin la placa conectada, ErgoAI funciona exactamente
-igual de completo, solo sin esta señal extra.
+celular, no en Firefox/Safari) — por eso el modo escritorio en Python (abajo) existe
+como alternativa en esos casos. El resto de ErgoAI (cámara, IA, racha, historial)
+funciona completo incluso sin la placa conectada.
 
 > `hardware/esp32cam_stream/` es una versión anterior del proyecto (cámara dedicada
 > ESP32-CAM transmitiendo por WiFi) que ya no está conectada a la interfaz actual —

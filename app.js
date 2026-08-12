@@ -1,5 +1,5 @@
 /* ============================================================
-   ErgoAI — Lógica de la aplicación (Kesta 6)
+   ErgoAI — Lógica de la aplicación (Kesta 8)
    ------------------------------------------------------------
    Este archivo maneja:
    1. La pantalla de carga (splash)
@@ -7,14 +7,19 @@
       tablet o celular) vía getUserMedia — sin IPs ni redes WiFi
       que configurar, funciona para cualquier persona.
    3. La detección de postura con IA (MediaPipe Pose), corriendo
-      directo en tu navegador — no hay servidor externo.
+      directo en tu navegador — no hay servidor externo. Usa 3
+      señales reales (hombros, cadera, cabeza) y calibración
+      personal, y clasifica en 3 estados: buena / atención / mala.
    4. El cálculo REAL de racha / progreso, guardado en este
       navegador (localStorage). Si limpias los datos del navegador
       o usas otra computadora, se reinicia — es una limitación
       honesta de esta versión sin servidor propio.
-   5. Pintar todo eso en la interfaz.
-   6. La alerta física opcional: buzzer + luz LED en una placa
-      aparte (IdeaBoard), conectada por cable USB vía Web Serial.
+   5. La sesión en vivo: línea de tiempo de los últimos minutos,
+      pensada para que aunque acabes de conectarte veas algo real.
+   6. Pintar todo eso en la interfaz (tooltips propios, toasts).
+   7. La alerta física — buzzer + luz LED en una placa aparte
+      (IdeaBoard), conectada por cable USB vía Web Serial. Requerida
+      para la feria, aunque el resto de la app funciona sin ella.
    ============================================================ */
 
 (() => {
@@ -50,6 +55,12 @@
   const recordHistoricEl = document.getElementById('recordHistoric');
   const weekRow = document.getElementById('weekRow');
 
+  // ---------- Kesta 8: sesión en vivo, toast, tooltip compartido ----------
+  const sessionModule = document.getElementById('sessionModule');
+  const sessionStrip = document.getElementById('sessionStrip');
+  const toastEl = document.getElementById('toast');
+  const chartTooltip = document.getElementById('chartTooltip');
+
   // ---------- Kesta 4: notificaciones, historial, modo presentación ----------
   const settingsBtn = document.getElementById('settingsBtn');
   const settingsPanel = document.getElementById('settingsPanel');
@@ -83,6 +94,51 @@
   }
   function safeSetItem(key, value) {
     try { localStorage.setItem(key, value); } catch { /* seguimos sin guardar */ }
+  }
+
+  // ---------- Aviso flotante temporal (toast) ----------
+  let toastTimeoutId = null;
+  function showToast(msg, ms = 3400) {
+    if (!toastEl) return;
+    toastEl.textContent = msg;
+    toastEl.hidden = false;
+    requestAnimationFrame(() => toastEl.classList.add('show'));
+    if (toastTimeoutId) clearTimeout(toastTimeoutId);
+    toastTimeoutId = setTimeout(() => {
+      toastEl.classList.remove('show');
+      setTimeout(() => { toastEl.hidden = true; }, 300);
+    }, ms);
+  }
+
+  // ---------- Tooltip compartido (historial, semana, sesión) ----------
+  // Reemplaza el "title" nativo del navegador (lento, feo, inconsistente)
+  // por un tooltip propio. Cualquier elemento con "data-tooltip" adentro
+  // de "container" lo dispara solo con pasar el mouse encima.
+  function bindTooltip(container) {
+    if (!container || !chartTooltip) return;
+    container.addEventListener('mouseover', (e) => {
+      const target = e.target.closest('[data-tooltip]');
+      if (!target || !container.contains(target)) return;
+      chartTooltip.textContent = target.dataset.tooltip;
+      chartTooltip.hidden = false;
+      requestAnimationFrame(() => chartTooltip.classList.add('show'));
+      positionTooltip(e, target);
+    });
+    container.addEventListener('mousemove', (e) => {
+      const target = e.target.closest('[data-tooltip]');
+      if (target && container.contains(target)) positionTooltip(e, target);
+    });
+    container.addEventListener('mouseout', (e) => {
+      const leavingTarget = e.target.closest('[data-tooltip]');
+      if (!leavingTarget) return;
+      if (e.relatedTarget && leavingTarget.contains(e.relatedTarget)) return;
+      chartTooltip.classList.remove('show');
+    });
+  }
+  function positionTooltip(e, target) {
+    const rect = target.getBoundingClientRect();
+    chartTooltip.style.left = `${rect.left + rect.width / 2}px`;
+    chartTooltip.style.top = `${rect.top - 8}px`;
   }
 
   function crossfadeText(el, newText) {
@@ -161,16 +217,21 @@
   function ensureToday() {
     const key = todayKey();
     if (!history[key]) {
-      history[key] = { goodSeconds: 0, totalSeconds: 0, bestStreakSeconds: 0 };
+      history[key] = { goodSeconds: 0, attentionSeconds: 0, totalSeconds: 0, bestStreakSeconds: 0 };
+    } else if (history[key].attentionSeconds === undefined) {
+      history[key].attentionSeconds = 0; // datos guardados antes de que existiera este campo
     }
     return history[key];
   }
 
-  // Se llama una vez por segundo mientras la cámara está conectada
-  function recordSample(isGood) {
+  // Se llama una vez por segundo mientras la cámara está conectada.
+  // "state" es 'good' | 'attention' | 'bad' — la racha diaria solo cuenta
+  // 'good' como buena postura (igual que antes); 'attention' no rompe la
+  // racha del día pero tampoco suma, queda guardado aparte para el futuro.
+  function recordSample(state) {
     const day = ensureToday();
     day.totalSeconds += 1;
-    if (isGood) {
+    if (state === 'good') {
       day.goodSeconds += 1;
       currentStreakSeconds += 1;
       if (currentStreakSeconds > day.bestStreakSeconds) {
@@ -178,11 +239,13 @@
       }
     } else {
       currentStreakSeconds = 0;
+      if (state === 'attention') day.attentionSeconds += 1;
     }
     saveHistory(history);
     renderFromStorage();
-    trackBadPostureAlert(isGood);
-    syncHardwareState(isGood);
+    trackBadPostureAlert(state);
+    syncHardwareState(state); // respaldo cada segundo — el cambio real ya se manda al confirmarse
+    recordSessionPoint(state);
   }
 
   // Un día cuenta como "bueno" si al menos el 50% del tiempo medido fue buena postura
@@ -254,13 +317,13 @@
 
       if (isFuture || !day || day.totalSeconds === 0) {
         pill.classList.add('empty');
-        pill.title = `${name}: sin datos todavía`;
+        pill.dataset.tooltip = `${name}: sin datos todavía`;
         pill.textContent = letter;
       } else {
         const ratio = day.goodSeconds / day.totalSeconds;
         const good = ratio >= 0.5;
         pill.classList.add(good ? 'good' : 'bad');
-        pill.title = `${name}: ${Math.round(ratio * 100)}% en buena postura`;
+        pill.dataset.tooltip = `${name}: ${Math.round(ratio * 100)}% en buena postura`;
         pill.innerHTML = `<span class="day-icon">${good ? '✓' : '✕'}</span>${letter}`;
       }
       weekRow.appendChild(pill);
@@ -269,27 +332,34 @@
 
   // ============================================================
   // 3. TARJETA DE ESTADO — la actualizan o el botón demo (sin
-  //    cámara) o la IA en vivo (con cámara conectada)
+  //    cámara) o la IA en vivo (con cámara conectada). 3 estados
+  //    reales: 'good' (buena), 'attention' (dudosa), 'bad' (mala) —
+  //    los mismos 3 que la luz de la placa física.
   // ============================================================
-  let demoMalaPostura = false;
+  const STATUS_COPY = {
+    good: { value: 'Buena Postura', sub: 'Sigue así, tu espalda te lo agradece', icon: '🧍' },
+    attention: { value: 'Postura Dudosa', sub: 'Vas por buen camino — endereza un poco más', icon: '🤔' },
+    bad: { value: 'Mala Postura', sub: 'Endereza tu espalda, ¡tú puedes!', icon: '🙇' },
+  };
   let cameraConnected = false;
 
-  function applyStatus(isGood) {
-    statusCard.classList.toggle('bad', !isGood);
-    crossfadeText(statusValueEl, isGood ? 'Buena Postura' : 'Mala Postura');
-    crossfadeText(statusSubEl, isGood
-      ? 'Sigue así, tu espalda te lo agradece'
-      : 'Endereza tu espalda, ¡tú puedes!');
-    popIcon(statusIconEl, isGood ? '🧍' : '🙇');
+  function applyStatus(state) {
+    statusCard.classList.remove('bad', 'attention');
+    if (state !== 'good') statusCard.classList.add(state);
+    const copy = STATUS_COPY[state] || STATUS_COPY.good;
+    crossfadeText(statusValueEl, copy.value);
+    crossfadeText(statusSubEl, copy.sub);
+    popIcon(statusIconEl, copy.icon);
   }
 
+  const DEMO_STATES = ['good', 'attention', 'bad'];
+  let demoStateIndex = 0;
   demoBtn.addEventListener('click', () => {
     if (cameraConnected) return; // con cámara real, el botón demo ya no manda
-    demoMalaPostura = !demoMalaPostura;
-    applyStatus(!demoMalaPostura);
-    demoBtn.textContent = demoMalaPostura
-      ? '👁️ Vista previa: Buena Postura'
-      : '👁️ Vista previa: Mala Postura';
+    demoStateIndex = (demoStateIndex + 1) % DEMO_STATES.length;
+    applyStatus(DEMO_STATES[demoStateIndex]);
+    const next = STATUS_COPY[DEMO_STATES[(demoStateIndex + 1) % DEMO_STATES.length]];
+    demoBtn.textContent = `👁️ Vista previa: ${next.value}`;
   });
 
   // ---------- Brillo que sigue al cursor en las tarjetas grandes ----------
@@ -303,17 +373,36 @@
   }
   attachCursorGlow(statusCard);
   attachCursorGlow(document.getElementById('streakModule'));
+  bindTooltip(weekRow);
+  bindTooltip(barChart);
+  bindTooltip(sessionStrip);
 
   // ============================================================
   // 4. CONEXIÓN CON LA CÁMARA (cualquier dispositivo) + IA
   // ============================================================
-  const CALIBRATION_KEY = 'ergoai_calibrated_angle';
+  // Nombre nuevo de la llave de calibración: la versión anterior guardaba
+  // un ÁNGULO (oreja-hombro); esta guarda una PROPORCIÓN distinta (cabeza
+  // vs. ancho de hombros — ver computePostureMetrics). Son escalas
+  // totalmente distintas, así que usamos una llave distinta a propósito:
+  // si usáramos la misma, a alguien que calibró antes se le leería ese
+  // número viejo como si fuera el nuevo, y saldría una clasificación sin
+  // sentido (por ejemplo, un "20" de ángulo interpretado como proporción).
+  const CALIBRATION_KEY = 'ergoai_calibrated_head_ratio';
   const CALIBRATION_MS = 3000; // cuánto dura la calibración
-  const CALIBRATION_MARGIN = 12; // grados de margen sobre TU ángulo calibrado
-  // Se usa solo si nunca has calibrado — un número genérico de partida.
-  const DEFAULT_ANGLE_THRESHOLD = 20;
-  // Cuántos cuadros seguidos se necesitan para confirmar un cambio de
-  // estado — evita que la tarjeta "parpadee" por un movimiento de un instante.
+
+  // ---------- Umbrales de clasificación (mismas 3 señales y valores que
+  // el script de escritorio en Python que ya probamos y funciona) ----------
+  const SHOULDER_TILT_MAX = 8; // grados de inclinación de hombros
+  const HIP_TILT_MAX = 8; // grados de inclinación de cadera
+  const DEFAULT_HEAD_GOOD = 0.27; // referencia genérica si nunca calibraste
+  const DEFAULT_HEAD_ATTENTION = 0.23;
+  // Con calibración personal, "bueno" y "atención" se miden relativo a TU
+  // propio número, no al genérico:
+  const HEAD_MARGIN_ATTENTION = 0.02; // cuánto por debajo de tu calibración ya es "atención"
+  const HEAD_MARGIN_BAD = 0.05; // cuánto por debajo ya es "mala"
+
+  // Cuántos cuadros seguidos con el MISMO estado nuevo se necesitan para
+  // confirmar el cambio — evita que la tarjeta "parpadee" por un instante.
   const DEBOUNCE_FRAMES = 8;
 
   let pose = null;
@@ -322,17 +411,18 @@
   let lastLandmarks = null; // últimos puntos del cuerpo que sí llegaron de la IA
   let gotFirstPoseResult = false;
   let poseWarnTimeoutId = null;
-  let goodStreakFrames = 0;
-  let badStreakFrames = 0;
-  let confirmedGood = true;
+  let confirmedState = 'good'; // 'good' | 'attention' | 'bad' — el estado ya confirmado (con debounce)
+  let pendingState = null; // candidato a nuevo estado, todavía "probándose"
+  let pendingStreak = 0;
   let secondTickInterval = null;
   let webcamStream = null;
-  let calibratedAngle = parseFloat(safeGetItem(CALIBRATION_KEY)) || null;
+  let calibratedHeadRatio = parseFloat(safeGetItem(CALIBRATION_KEY));
+  if (Number.isNaN(calibratedHeadRatio)) calibratedHeadRatio = null;
   let calibrating = false;
   let calibrationSamples = [];
 
-  if (calibratedAngle) {
-    calibrateStatus.textContent = `Calibrada: ${calibratedAngle.toFixed(0)}° de referencia`;
+  if (calibratedHeadRatio !== null) {
+    calibrateStatus.textContent = 'Calibrada ✓ — usando tu propia referencia de buena postura';
   }
 
   function showCameraError(msg) {
@@ -356,6 +446,13 @@
   // justo como sirve GitHub Pages, así que funciona para cualquier persona
   // que abra el link, en cualquier dispositivo con cámara.
   webcamConnectBtn.addEventListener('click', async () => {
+    // Este clic SÍ es un gesto directo del usuario — es el momento correcto
+    // (y, en varios navegadores, el ÚNICO momento válido) para "despertar"
+    // el audio y pedir permiso de notificaciones. Si se piden después,
+    // desde un temporizador, muchos navegadores los bloquean en silencio.
+    unlockAudio();
+    requestNotifyPermissionIfNeeded();
+
     hideCameraError();
     webcamConnectBtn.disabled = true;
     webcamConnectBtn.textContent = 'Pidiendo permiso…';
@@ -419,12 +516,16 @@
     }
     lastLandmarks = null;
     gotFirstPoseResult = false;
-    goodStreakFrames = 0;
-    badStreakFrames = 0;
+    confirmedState = 'good';
+    pendingState = null;
+    pendingStreak = 0;
     badPostureSeconds = 0;
     secondsSinceLastAlert = 0;
     calibrating = false;
     calibrateBtn.disabled = false;
+    sessionSamples = [];
+    renderSessionStrip();
+    sessionModule.hidden = true;
 
     sendHwCommand('OFF');
   }
@@ -435,10 +536,13 @@
     poseCanvas.hidden = false;
     changeIpBtn.hidden = false;
     calibrateRow.hidden = false;
+    sessionModule.hidden = false;
+    sessionSamples = [];
+    renderSessionStrip();
 
     if (!secondTickInterval) {
       secondTickInterval = setInterval(() => {
-        if (cameraConnected) recordSample(confirmedGood);
+        if (cameraConnected) recordSample(confirmedState);
       }, 1000);
     }
 
@@ -468,7 +572,7 @@
 
     // Si la placa del buzzer ya estaba conectada, avísale el estado actual
     // de una vez (en vez de esperar hasta 1 segundo al primer tick)
-    syncHardwareState(confirmedGood);
+    syncHardwareState(confirmedState);
   }
 
   function initPoseIfNeeded() {
@@ -555,19 +659,15 @@
       return;
     }
     const avg = calibrationSamples.reduce((a, b) => a + b, 0) / calibrationSamples.length;
-    calibratedAngle = avg;
-    safeSetItem(CALIBRATION_KEY, avg.toFixed(2));
-    calibrateStatus.textContent = `Calibrada: ${avg.toFixed(0)}° de referencia`;
-  }
-
-  function currentThreshold() {
-    return calibratedAngle !== null ? calibratedAngle + CALIBRATION_MARGIN : DEFAULT_ANGLE_THRESHOLD;
+    calibratedHeadRatio = avg;
+    safeSetItem(CALIBRATION_KEY, avg.toFixed(4));
+    calibrateStatus.textContent = 'Calibrada ✓ — usando tu propia referencia de buena postura';
   }
 
   function onPoseResults(results) {
     // Ya NO dibuja aquí (eso lo hace drawPreview, en cada cuadro de
     // pantalla, sin depender de esto) — esta función solo guarda los
-    // puntos del cuerpo más recientes y decide buena/mala postura.
+    // puntos del cuerpo más recientes y decide el estado de postura.
     if (!gotFirstPoseResult) {
       gotFirstPoseResult = true;
       hideCameraError(); // por si alcanzó a mostrarse el aviso de "la IA no responde"
@@ -576,42 +676,94 @@
 
     if (!results.poseLandmarks) return;
 
-    const angleDeg = computeNeckAngle(results.poseLandmarks);
-    if (calibrating) calibrationSamples.push(angleDeg);
+    const metrics = computePostureMetrics(results.poseLandmarks);
+    if (calibrating) calibrationSamples.push(metrics.headRatio);
 
-    const isGoodFrame = angleDeg <= currentThreshold();
-
-    if (isGoodFrame) {
-      goodStreakFrames += 1;
-      badStreakFrames = 0;
-    } else {
-      badStreakFrames += 1;
-      goodStreakFrames = 0;
-    }
-
-    if (isGoodFrame && !confirmedGood && goodStreakFrames >= DEBOUNCE_FRAMES) {
-      confirmedGood = true;
-      applyStatus(true);
-    } else if (!isGoodFrame && confirmedGood && badStreakFrames >= DEBOUNCE_FRAMES) {
-      confirmedGood = false;
-      applyStatus(false);
-    }
+    updateConfirmedState(classifyPosture(metrics));
   }
 
-  // Landmarks de MediaPipe Pose: 7/8 = orejas, 11/12 = hombros.
-  // Ángulo entre oreja y hombro respecto a la vertical: 0° = cabeza justo
-  // encima del hombro (perfecto); entre más grande, más se inclina hacia adelante.
-  function computeNeckAngle(landmarks) {
-    const leftEar = landmarks[7], rightEar = landmarks[8];
-    const leftShoulder = landmarks[11], rightShoulder = landmarks[12];
+  // Landmarks de MediaPipe Pose (mismos índices que en el script de
+  // Python): 0 = nariz, 11/12 = hombros, 23/24 = cadera. Estas son las
+  // mismas 3 señales que ya probamos y funcionan en desktop/posture_detector.py:
+  //  1. Inclinación de hombros respecto a la horizontal.
+  //  2. Inclinación de cadera respecto a la horizontal.
+  //  3. Qué tan "alta" está la cabeza (nariz) respecto al centro de los
+  //     hombros, normalizado por el ancho de hombros — así no importa si
+  //     estás cerca o lejos de la cámara.
+  function computePostureMetrics(landmarks) {
+    const nose = landmarks[0];
+    const lSh = landmarks[11], rSh = landmarks[12];
+    const lHip = landmarks[23], rHip = landmarks[24];
 
-    const leftScore = (leftEar.visibility || 0) + (leftShoulder.visibility || 0);
-    const rightScore = (rightEar.visibility || 0) + (rightShoulder.visibility || 0);
-    const [ear, shoulder] = leftScore >= rightScore ? [leftEar, leftShoulder] : [rightEar, rightShoulder];
+    const shCenterY = (lSh.y + rSh.y) / 2;
+    const shoulderWidth = Math.hypot(rSh.x - lSh.x, rSh.y - lSh.y);
 
-    const dx = Math.abs(ear.x - shoulder.x);
-    const dy = Math.abs(shoulder.y - ear.y);
-    return Math.atan2(dx, dy) * (180 / Math.PI);
+    // Arreglo de precisión: en una webcam típica de escritorio, la cadera
+    // muchas veces queda fuera de cuadro (solo se ve de los hombros para
+    // arriba). Si la IA no está segura de dónde está (poca "visibility"),
+    // es mejor ignorar esa señal que dejar que un dato ruidoso invente un
+    // "problema" de postura que no existe.
+    const hipVisible = (lHip.visibility || 0) > 0.5 && (rHip.visibility || 0) > 0.5;
+
+    return {
+      shoulderTilt: tiltAngle(lSh, rSh),
+      hipTilt: hipVisible ? tiltAngle(lHip, rHip) : null,
+      headRatio: shoulderWidth > 0 ? (shCenterY - nose.y) / shoulderWidth : 0,
+    };
+  }
+
+  // Ángulo (0-90°) entre dos puntos y la horizontal — 0° = perfectamente
+  // nivelado, entre más grande, más inclinado hacia un lado.
+  function tiltAngle(p1, p2) {
+    const dx = p2.x - p1.x;
+    const dy = p2.y - p1.y;
+    let angle = Math.abs(Math.atan2(dy, dx) * (180 / Math.PI));
+    if (angle > 90) angle = 180 - angle;
+    return angle;
+  }
+
+  // Traduce las 3 señales a un estado: 'good' | 'attention' | 'bad'.
+  // La cabeza manda (si está bien arriba, es buena postura salvo que
+  // hombros/cadera estén torcidos — eso ya la baja a "atención"); si la
+  // cabeza está claramente baja, es mala postura sin importar lo demás.
+  // Mismo orden de decisión que el script de Python que ya funciona.
+  function classifyPosture(m) {
+    let goodThreshold = DEFAULT_HEAD_GOOD;
+    let attentionThreshold = DEFAULT_HEAD_ATTENTION;
+    if (calibratedHeadRatio !== null) {
+      goodThreshold = calibratedHeadRatio - HEAD_MARGIN_ATTENTION;
+      attentionThreshold = calibratedHeadRatio - HEAD_MARGIN_BAD;
+    }
+    const tiltProblem = m.shoulderTilt > SHOULDER_TILT_MAX || (m.hipTilt !== null && m.hipTilt > HIP_TILT_MAX);
+
+    if (m.headRatio >= goodThreshold) return tiltProblem ? 'attention' : 'good';
+    if (m.headRatio >= attentionThreshold) return 'attention';
+    return 'bad';
+  }
+
+  // Debounce genérico de 3 estados: un candidato nuevo debe repetirse
+  // DEBOUNCE_FRAMES veces seguidas antes de confirmarse — así un
+  // parpadeo de un instante (la IA pierde el cuerpo un cuadro, te mueves
+  // rápido) no hace que la tarjeta/placa cambien en falso.
+  function updateConfirmedState(candidate) {
+    if (candidate === confirmedState) {
+      pendingState = null;
+      pendingStreak = 0;
+      return;
+    }
+    if (candidate === pendingState) {
+      pendingStreak += 1;
+    } else {
+      pendingState = candidate;
+      pendingStreak = 1;
+    }
+    if (pendingStreak >= DEBOUNCE_FRAMES) {
+      confirmedState = candidate;
+      pendingState = null;
+      pendingStreak = 0;
+      applyStatus(confirmedState);
+      syncHardwareState(confirmedState); // reacción inmediata, no esperar al tick de 1s
+    }
   }
 
   // ============================================================
@@ -652,42 +804,73 @@
     }
   });
 
+  // ---------- Arreglo: "nunca se escucha ninguna notificación" ----------
+  // Causa real: (1) antes creábamos un AudioContext NUEVO en cada beep, y
+  // los navegadores crean el audio "pausado" hasta que hay una interacción
+  // directa del usuario — nunca lo reanudábamos (falta un .resume()), así
+  // que aunque no daba error, tampoco sonaba nunca. (2) el permiso de
+  // notificaciones se pedía desde un temporizador (no un clic real), y los
+  // navegadores bloquean silenciosamente esos pedidos "no solicitados" —
+  // el permiso se quedaba en blanco para siempre. Ahora ambos se
+  // resuelven en el mismo momento: el clic en "Activar cámara" (ver
+  // unlockAudio/requestNotifyPermissionIfNeeded, llamados desde ahí).
+  let sharedAudioCtx = null;
+  function getAudioCtx() {
+    const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtxClass) return null;
+    if (!sharedAudioCtx) sharedAudioCtx = new AudioCtxClass();
+    return sharedAudioCtx;
+  }
+  function unlockAudio() {
+    const ctx = getAudioCtx();
+    if (ctx && ctx.state === 'suspended') ctx.resume().catch(() => {});
+  }
+  function requestNotifyPermissionIfNeeded() {
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission().catch(() => {});
+    }
+  }
+
   // Un "beep" generado con Web Audio — no necesita ningún archivo de sonido
   function playTone(freq, durationMs) {
-    try {
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.value = freq;
-      gain.gain.setValueAtTime(0.15, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + durationMs / 1000);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start();
-      osc.stop(ctx.currentTime + durationMs / 1000);
-    } catch {
-      // Si el navegador bloquea el audio (por ejemplo, sin interacción previa
-      // del usuario todavía), simplemente no suena — no rompemos nada más.
-    }
+    const ctx = getAudioCtx();
+    if (!ctx) return;
+    const play = () => {
+      try {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.15, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + durationMs / 1000);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + durationMs / 1000);
+      } catch {
+        // Si algo falla, simplemente no suena — no rompemos nada más.
+      }
+    };
+    if (ctx.state === 'suspended') ctx.resume().then(play).catch(() => {});
+    else play();
   }
 
-  let notifPermissionAsked = false;
   function notify(title, body) {
-    if (!('Notification' in window)) return;
-    if (Notification.permission === 'granted') {
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+    try {
       new Notification(title, { body, icon: 'assets/favicon.svg' });
-    } else if (Notification.permission !== 'denied' && !notifPermissionAsked) {
-      notifPermissionAsked = true;
-      Notification.requestPermission().then((perm) => {
-        if (perm === 'granted') new Notification(title, { body, icon: 'assets/favicon.svg' });
-      });
+    } catch {
+      // Algunos navegadores (sobre todo en celular) no soportan crear
+      // Notification aunque exista el objeto — no pasa nada, el beep suena igual.
     }
   }
 
-  // Se llama una vez por segundo (desde recordSample) mientras hay cámara conectada
-  function trackBadPostureAlert(isGood) {
-    if (isGood) {
+  // Se llama una vez por segundo (desde recordSample) mientras hay cámara
+  // conectada. Solo el estado 'bad' cuenta para el aviso insistente —
+  // 'attention' es la advertencia temprana silenciosa, 'bad' es cuando de
+  // verdad conviene interrumpirte (mismo criterio que usa el buzzer).
+  function trackBadPostureAlert(state) {
+    if (state !== 'bad') {
       badPostureSeconds = 0;
       secondsSinceLastAlert = 0;
       return;
@@ -730,7 +913,18 @@
     }
   }
 
-  presentationBtn.addEventListener('click', () => setPresentationMode(true));
+  presentationBtn.addEventListener('click', () => {
+    // El modo presentación esconde los paneles de conexión (para que se
+    // vea limpio frente a los jueces) — pero si todavía falta conectar
+    // algo, mejor avisar ANTES de esconderlos, no después.
+    const missing = [];
+    if (!cameraConnected) missing.push('la cámara');
+    if (!hwWriter) missing.push('la placa (buzzer)');
+    if (missing.length) {
+      showToast(`⚠️ Todavía falta conectar ${missing.join(' y ')}. Puedes presentar igual, pero la feria requiere la placa conectada.`);
+    }
+    setPresentationMode(true);
+  });
   exitPresentationBtn.addEventListener('click', () => setPresentationMode(false));
   document.addEventListener('fullscreenchange', () => {
     if (!document.fullscreenElement) setPresentationMode(false);
@@ -771,7 +965,7 @@
       // --- barra ---
       const col = document.createElement('div');
       col.className = 'bar-col' + (isToday ? ' is-today' : '') + (hasData ? '' : ' no-data');
-      col.title = hasData ? `${fullName}: ${percent}% en buena postura` : `${fullName}: sin datos`;
+      col.dataset.tooltip = hasData ? `${fullName}: ${percent}% en buena postura` : `${fullName}: sin datos`;
 
       const value = document.createElement('span');
       value.className = 'bar-value';
@@ -806,19 +1000,63 @@
   });
 
   // ============================================================
-  // 8. ALERTA FÍSICA (Kesta 6): buzzer + luz LED en una placa
-  //    aparte (IdeaBoard), conectada por CABLE USB.
+  // 7b. SESIÓN EN VIVO (Kesta 8) — línea de tiempo de ESTA conexión,
+  //    con datos reales, para que aunque acabes de conectar la
+  //    cámara (como en la mesa de la feria) veas algo genuino
+  //    pasando, sin necesitar días de historial acumulado. Vive solo
+  //    en memoria — se reinicia cada vez que te reconectas o recargas.
+  // ============================================================
+  const SESSION_TICK_SECONDS = 2; // cada barra = 2 segundos reales
+  const MAX_SESSION_TICKS = 90; // 90 barras × 2s = 3 minutos visibles
+  let sessionSamples = [];
+  let sessionTickCounter = 0;
+
+  // Se llama una vez por segundo, desde recordSample.
+  function recordSessionPoint(state) {
+    sessionTickCounter += 1;
+    if (sessionTickCounter < SESSION_TICK_SECONDS) return;
+    sessionTickCounter = 0;
+    sessionSamples.push(state);
+    if (sessionSamples.length > MAX_SESSION_TICKS) sessionSamples.shift();
+    renderSessionStrip();
+  }
+
+  const SESSION_STATE_LABEL = { good: 'Buena postura', attention: 'Postura dudosa', bad: 'Mala postura' };
+
+  function renderSessionStrip() {
+    sessionStrip.innerHTML = '';
+    if (sessionSamples.length === 0) {
+      const empty = document.createElement('p');
+      empty.className = 'session-empty';
+      empty.textContent = 'Todavía no hay datos de esta sesión — dale un par de segundos.';
+      sessionStrip.appendChild(empty);
+      return;
+    }
+    sessionSamples.forEach((state, i) => {
+      const tick = document.createElement('div');
+      tick.className = `session-tick ${state}`;
+      const secondsAgo = (sessionSamples.length - 1 - i) * SESSION_TICK_SECONDS;
+      tick.dataset.tooltip = secondsAgo === 0
+        ? `${SESSION_STATE_LABEL[state]} · ahora`
+        : `${SESSION_STATE_LABEL[state]} · hace ${secondsAgo}s`;
+      sessionStrip.appendChild(tick);
+    });
+  }
+
+  // ============================================================
+  // 8. ALERTA FÍSICA (Kesta 8, requerida en la feria): buzzer + luz
+  //    LED en una placa aparte (IdeaBoard), conectada por CABLE USB.
   //
   //    La placa ya trae su propio programa corriendo (CircuitPython),
   //    esperando líneas de texto por el puerto serial: "GOOD",
   //    "ATTENTION", "BAD" u "OFF". Este bloque solo se encarga de
-  //    mandarle esas palabras según lo que la cámara va detectando.
+  //    mandarle EXACTAMENTE el mismo estado de 3 niveles que ya
+  //    calculó classifyPosture() — nada de aproximarlo por tiempo.
   //
-  //    Es 100% opcional — sin la placa conectada, la app funciona
-  //    igual de completa, solo con la tarjeta de estado en pantalla.
   //    Usa la Web Serial API, que solo existe en Chrome/Edge de
   //    computadora (no en celular, no en Firefox/Safari) — por eso
-  //    se detecta primero si el navegador la soporta.
+  //    se detecta primero si el navegador la soporta. Si no está
+  //    disponible, el resto de ErgoAI sigue funcionando completo.
   // ============================================================
   const hwConnectBtn = document.getElementById('hwConnectBtn');
   const hwPill = document.getElementById('hwPill');
@@ -857,15 +1095,15 @@
     });
   }
 
-  // Traduce el estado de la postura a los 3 niveles que la placa entiende:
-  // buena postura, "llevas un rato así" (todavía sin sonar), y alarma activa.
-  function syncHardwareState(isGood) {
+  // Traduce nuestro estado ('good'/'attention'/'bad') a la palabra exacta
+  // que espera el programa de la placa.
+  function hwCommandForState(state) {
+    return state === 'good' ? 'GOOD' : state === 'attention' ? 'ATTENTION' : 'BAD';
+  }
+
+  function syncHardwareState(state) {
     if (!hwWriter) return;
-    if (isGood) {
-      sendHwCommand('GOOD');
-      return;
-    }
-    sendHwCommand(badPostureSeconds >= BAD_POSTURE_ALERT_SECONDS ? 'BAD' : 'ATTENTION');
+    sendHwCommand(hwCommandForState(state));
   }
 
   async function connectHardware() {
@@ -880,7 +1118,7 @@
       setHwPillState(true);
       // Si la cámara ya estaba activa, avisa el estado actual de una vez;
       // si no, deja la placa apagada hasta que haya postura que reportar.
-      sendHwCommand(cameraConnected ? (confirmedGood ? 'GOOD' : 'BAD') : 'OFF');
+      sendHwCommand(cameraConnected ? hwCommandForState(confirmedState) : 'OFF');
       navigator.serial.addEventListener('disconnect', handleHwUnplugged);
     } catch (err) {
       // "NotFoundError" pasa si el usuario cierra el selector de puerto sin
