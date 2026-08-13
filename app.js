@@ -1033,9 +1033,15 @@
       sendHwCommand(cameraConnected ? hwCommandForState(confirmedState) : 'OFF');
       navigator.serial.addEventListener('disconnect', handleHwUnplugged);
     } catch (err) {
-      // "NotFoundError" pasa si el usuario cierra el selector de puerto sin
-      // elegir nada — no es un error real, no hace falta avisar nada.
-      if (err && err.name !== 'NotFoundError') {
+      if (err && err.name === 'NotFoundError') {
+        // Pasa si el usuario cierra el selector de puerto sin elegir nada —
+        // O si la lista aparece VACÍA porque Windows todavía no reconoce la
+        // placa (falta el driver "CH340", muy común en una computadora
+        // donde nunca se ha conectado una placa como esta). Como no
+        // podemos distinguir "cancelaste a propósito" de "no había nada
+        // para elegir", damos un aviso breve por si acaso.
+        showCameraError('Si no viste tu placa en la lista, revisa que esté conectada por USB y que tenga instalado el driver "CH340" (búscalo así en internet — es gratis y toma 1 minuto instalarlo).');
+      } else {
         showCameraError('No se pudo conectar con la placa. Revisa que esté conectada por USB y que ningún otro programa (Mu, monitor serial, Arduino IDE…) tenga su puerto abierto.');
       }
     }

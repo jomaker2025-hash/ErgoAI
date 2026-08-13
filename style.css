@@ -96,6 +96,25 @@ body {
     radial-gradient(circle at 85% 15%, rgba(255, 122, 41, 0.15), transparent 35%),
     radial-gradient(circle at 80% 85%, rgba(139, 47, 240, 0.18), transparent 35%),
     radial-gradient(circle at 10% 90%, rgba(238, 31, 143, 0.14), transparent 35%);
+  background-size: 180% 180%;
+  background-position: 50% 50%;
+  animation: drift 34s ease-in-out infinite alternate;
+}
+
+/* Manchas de color a la deriva, muy lento — apenas perceptible, le da
+   vida al fondo sin distraer de la información real. */
+@keyframes drift {
+  0% { background-position: 20% 20%; }
+  50% { background-position: 75% 65%; }
+  100% { background-position: 35% 80%; }
+}
+
+/* En modo presentación el fondo se mueve un poco más notorio — es la
+   "pantalla de escenario" para los jueces, puede llamar un poco más
+   la atención que en el uso normal del día a día. */
+.presentation-mode .bg-glow {
+  background-size: 220% 220%;
+  animation-duration: 22s;
 }
 
 /* ============================================================
@@ -406,6 +425,22 @@ body {
   color: var(--text-secondary);
 }
 
+/* Aviso de privacidad: mismo lenguaje visual que un badge de "estado
+   bueno" (verde, ícono + texto) — a propósito, para que se lea como
+   una garantía tranquilizadora, no como una advertencia. */
+.privacy-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 0.74rem;
+  color: var(--status-good);
+  background: var(--status-good-bg);
+  border: 1px solid rgba(12, 163, 12, 0.25);
+  padding: 6px 12px;
+  border-radius: 999px;
+}
+
 .camera-source-panel {
   width: 100%;
 }
@@ -446,6 +481,8 @@ body {
 }
 
 .btn-connect {
+  position: relative;
+  overflow: hidden;
   background: var(--teal);
   color: #04201f;
   font-weight: 700;
@@ -455,6 +492,30 @@ body {
   padding: 10px 18px;
   cursor: pointer;
   transition: transform 0.2s var(--ease-fluid), background 0.2s ease;
+}
+
+/* Brillo que "recorre" el botón al pasar el mouse — acabado premium.
+   Anima con transform (no "left") para que el navegador lo dibuje con
+   la GPU, sin recalcular el layout en cada cuadro. */
+.btn-connect::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 40%;
+  height: 100%;
+  background: linear-gradient(115deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+  transform: translateX(-250%) skewX(-20deg);
+  pointer-events: none;
+}
+
+.btn-connect:hover::after {
+  animation: shine-sweep 0.85s ease;
+}
+
+@keyframes shine-sweep {
+  from { transform: translateX(-250%) skewX(-20deg); }
+  to { transform: translateX(350%) skewX(-20deg); }
 }
 
 .btn-connect:hover {
@@ -499,6 +560,13 @@ body {
   border-radius: 12px;
   border: 1px solid var(--card-border);
   background: #000;
+  /* Efecto espejo (como cualquier cámara de selfie/videollamada): sin
+     esto, algunas cámaras se ven "al revés" (tu mano derecha aparece
+     del lado izquierdo) y otras no, según cómo cada fabricante decida
+     entregar la imagen — es justo lo que hacía que en una computadora
+     se viera bien y en otra se viera "bugueada"/invertida. Lo fijamos
+     nosotros mismos aquí para que se vea igual en cualquier cámara. */
+  transform: scaleX(-1);
 }
 
 .calibrate-row {
@@ -636,6 +704,15 @@ body {
 .session-tick.attention { background: var(--status-attention); }
 .session-tick.bad { background: var(--status-bad); }
 
+/* La barra más reciente (la de "ahora") lleva un resplandor fijo, para
+   que el ojo la encuentre de inmediato — sin animación de aparición:
+   la tira se reconstruye entera cada pocos segundos, y si esta barra
+   "apareciera" con una animación, se repetiría sin parar y volvería a
+   verse como el parpadeo que ya arreglamos en el módulo de racha. */
+.session-tick:last-child.good { box-shadow: 0 0 8px var(--status-good); }
+.session-tick:last-child.attention { box-shadow: 0 0 8px var(--status-attention); }
+.session-tick:last-child.bad { box-shadow: 0 0 8px var(--status-bad); }
+
 .session-sub {
   margin-top: 10px;
   font-size: 0.72rem;
@@ -651,13 +728,8 @@ body {
 }
 
 /* Tarjeta con "levantón" suave al pasar el mouse — sensación fluida */
-.status-card {
-  transition: transform 0.35s var(--ease-fluid), box-shadow 0.35s var(--ease-fluid);
-}
-
 .status-card:hover {
   transform: translateY(-3px);
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
 }
 
 /* Brillo suave que sigue al cursor dentro de la tarjeta grande.
@@ -722,6 +794,26 @@ body {
 
 .status-card.bad::before {
   background: var(--gradient-bad);
+}
+
+/* Resplandor ambiental por debajo de la tarjeta, del color del estado
+   actual — un acabado "premium" sutil, nunca la única forma de saber
+   el estado (el texto, el ícono y el color del borde ya lo dicen). */
+.status-card {
+  box-shadow: 0 0 0 rgba(0, 0, 0, 0);
+  transition: transform 0.35s var(--ease-fluid), box-shadow 0.6s ease;
+}
+
+.status-card.attention {
+  box-shadow: 0 30px 70px -20px rgba(250, 178, 25, 0.35);
+}
+
+.status-card.bad {
+  box-shadow: 0 30px 70px -20px rgba(208, 59, 59, 0.4);
+}
+
+.status-card:not(.attention):not(.bad) {
+  box-shadow: 0 30px 70px -24px rgba(12, 163, 12, 0.3);
 }
 
 .live-badge {
@@ -909,11 +1001,13 @@ body {
   width: 100%;
   background: var(--teal);
   border-radius: 4px 4px 0 0;
-  transition: height 0.7s var(--ease-fluid);
+  box-shadow: 0 0 10px rgba(22, 201, 201, 0.35);
+  transition: height 0.7s var(--ease-fluid), box-shadow 0.3s ease;
 }
 
 .bar-col.is-today .bar-fill {
   background: var(--orange);
+  box-shadow: 0 0 10px rgba(255, 122, 41, 0.4);
 }
 
 .bar-col.no-data .bar-track {
@@ -1003,6 +1097,11 @@ body {
   font-size: 1.6rem;
   display: block;
   margin-bottom: 10px;
+  transition: transform 0.3s var(--ease-fluid);
+}
+
+.info-card:hover .info-icon {
+  transform: scale(1.15) rotate(-4deg);
 }
 
 .info-card h3 {
@@ -1088,6 +1187,25 @@ body {
 .presentation-mode .app {
   max-width: 1400px;
   padding-top: 56px;
+  animation: stage-entrance 0.7s var(--ease-fluid) both;
+}
+
+@keyframes stage-entrance {
+  from { opacity: 0; transform: scale(0.97); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* El ícono grande "respira" en modo presentación — un movimiento muy
+   sutil que hace que la tarjeta se sienta viva en la mesa de la feria,
+   sin competir con la animación de "rebote" que ya tiene al cambiar
+   de estado (esa manda mientras dura). */
+.presentation-mode .status-icon {
+  animation: breathe 3.2s ease-in-out infinite;
+}
+
+@keyframes breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
 }
 
 .presentation-mode .status-value {

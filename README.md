@@ -116,6 +116,11 @@ celular, no en Firefox/Safari) — por eso el modo escritorio en Python (abajo) 
 como alternativa en esos casos. El resto de ErgoAI (cámara, IA, historial)
 funciona completo incluso sin la placa conectada.
 
+> **En una computadora nueva** (donde nunca se ha conectado esta placa), si la lista
+> de puertos aparece vacía al hacer clic en "Conectar placa", probablemente falta el
+> driver **CH340** — es gratis, se instala en un minuto, y solo hace falta una vez
+> por computadora.
+
 > `hardware/esp32cam_stream/` es una versión anterior del proyecto (cámara dedicada
 > ESP32-CAM transmitiendo por WiFi) que ya no está conectada a la interfaz actual —
 > se dejó en el repositorio como referencia. Si algún día la vuelves a usar, recuerda
