@@ -54,7 +54,7 @@ IdeaBoard) — **requerida para la demo de la feria**: luz verde = buena postura
 | Parte | Tecnología |
 |---|---|
 | Interfaz | HTML, CSS y JavaScript puro (sin frameworks) |
-| Detección de postura (web) | [MediaPipe Pose](https://developers.google.com/mediapipe) (corre en el navegador) |
+| Detección de postura (web) | [MediaPipe Pose](https://developers.google.com/mediapipe) (corre en el navegador, con un bucle propio de envío de cuadros — no la utilidad "Camera" de MediaPipe, que abre su propio acceso a la cámara por dentro y causaba conflictos) |
 | Detección de postura (escritorio) | MediaPipe Pose + OpenCV, en Python (`desktop/`) |
 | Cámara | La del propio dispositivo, vía `getUserMedia` (web) u OpenCV (escritorio) |
 | Alerta física (requerida en feria) | IdeaBoard (CircuitPython), por USB — desde el navegador (Web Serial API) o desde Python (`pyserial`) |

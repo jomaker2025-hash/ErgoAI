@@ -231,7 +231,7 @@
 
     <footer class="footer">
       <p>ErgoAI © 2026 — Proyecto Kesta GHS</p>
-      <p class="version-tag">Kesta 11 · privacidad, cámara espejo &amp; acabado premium</p>
+      <p class="version-tag">Kesta 11 · privacidad, cámara sin bugueo &amp; acabado premium</p>
     </footer>
   </div>
 
@@ -267,7 +267,15 @@
        evita ese desajuste. -->
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/pose.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3.1675466124/drawing_utils.js" crossorigin="anonymous"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js" crossorigin="anonymous"></script>
+  <!-- Nota: @mediapipe/camera_utils YA NO se usa a propósito — su clase
+       "Camera" abre su propia cámara por dentro (getUserMedia por segunda
+       vez), lo que dejaba DOS accesos abiertos a la misma cámara física y
+       causaba el "bugueo" al abrir. app.js ahora manda los cuadros con su
+       propio bucle, sobre la única cámara que ya conectamos. -->
+  <!-- Motion (motion.dev) — sucesor de Framer Motion para JS puro, sin
+       necesidad de React ni build tools. Se expone como variable global
+       `Motion`, de la que sacamos `animate`, `scroll`, etc. en app.js. -->
+  <script src="https://cdn.jsdelivr.net/npm/motion@13.1.0/dist/motion.js" crossorigin="anonymous"></script>
   <script src="app.js"></script>
 </body>
 </html>

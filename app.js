@@ -1,5 +1,5 @@
 /* ============================================================
-   ErgoAI — Lógica de la aplicación (Kesta 10)
+   ErgoAI — Lógica de la aplicación (Kesta 11)
    ------------------------------------------------------------
    Este archivo maneja:
    1. La pantalla de carga (splash)
@@ -26,6 +26,11 @@
 
 (() => {
   'use strict';
+
+  // ---------- Motion (motion.dev) ----------
+  // Cargado como <script> global en index.html (ver comentario ahí).
+  // Listo para animaciones, ej.: animate('.status-card', { opacity: [0, 1] }).
+  const { animate, scroll, stagger, inView } = window.Motion || {};
 
   // ---------- Elementos del DOM ----------
   const splash = document.getElementById('splash');
@@ -309,7 +314,8 @@
   const DEBOUNCE_FRAMES = 8;
 
   let pose = null;
-  let mpCamera = null; // instancia de la utilidad oficial @mediapipe/camera_utils
+  let poseLoopRunning = false; // bucle propio que le manda cuadros a la IA (ver startPoseProcessing)
+  let poseFrameBusy = false; // evita mandar un cuadro nuevo antes de que la IA termine el anterior
   let previewLoopRunning = false;
   let lastLandmarks = null; // últimos puntos del cuerpo que sí llegaron de la IA
   let gotFirstPoseResult = false;
@@ -409,10 +415,8 @@
       clearInterval(secondTickInterval);
       secondTickInterval = null;
     }
-    if (mpCamera) {
-      mpCamera.stop();
-      mpCamera = null;
-    }
+    poseLoopRunning = false;
+    poseFrameBusy = false;
     if (poseWarnTimeoutId) {
       clearTimeout(poseWarnTimeoutId);
       poseWarnTimeoutId = null;
@@ -496,27 +500,41 @@
     pose.onResults(onPoseResults);
   }
 
-  // Le manda cuadros de video a la IA. Usa la utilidad oficial de MediaPipe
-  // (Camera), que espera a que termine de procesar un cuadro antes de
-  // mandar el siguiente. Arreglo: antes mandábamos un cuadro nuevo en
-  // CADA frame de pantalla (hasta 60 veces por segundo) sin esperar a que
-  // la IA terminara con el anterior — eso hacía que se acumularan cuadros
-  // sin procesar y la IA se quedara "atorada" sin volver a responder
-  // nunca, con la cámara pareciendo conectada pero sin hacer nada.
+  // Le manda cuadros de video a la IA, esperando a que termine de procesar
+  // un cuadro antes de mandar el siguiente (igual que antes). Arreglo:
+  // antes mandábamos un cuadro nuevo en CADA frame de pantalla (hasta 60
+  // veces por segundo) sin esperar a que la IA terminara con el anterior
+  // — eso hacía que se acumularan cuadros sin procesar y la IA se quedara
+  // "atorada" sin volver a responder nunca.
+  //
+  // Arreglo (Kesta 11.1): antes usábamos la utilidad "Camera" de
+  // @mediapipe/camera_utils para esto, pero esa utilidad ABRE SU PROPIA
+  // cámara por dentro (llama a getUserMedia otra vez ella sola) en vez de
+  // usar la que ya conectamos nosotros — así que cada vez que se activaba
+  // la cámara quedaban DOS accesos abiertos al mismo dispositivo físico al
+  // mismo tiempo. En varias cámaras/computadoras eso es justo lo que se
+  // veía como que "se bugueaba" al abrir (imagen congelada, parpadeando,
+  // con colores raros) — el driver de la cámara peleando entre dos
+  // programas pidiéndole video a la vez. Ahora usamos nuestro propio
+  // bucle, sobre la ÚNICA cámara que ya está conectada (webcamVideo).
   function startPoseProcessing() {
-    if (!pose || mpCamera) return;
-    if (typeof Camera === 'undefined') {
-      showCameraError('No se pudo cargar una pieza del motor de IA (camera_utils). Revisa tu conexión a internet y recarga la página.');
-      return;
-    }
-    mpCamera = new Camera(webcamVideo, {
-      onFrame: async () => {
-        if (pose) await pose.send({ image: webcamVideo });
-      },
-      width: 320,
-      height: 240,
-    });
-    mpCamera.start();
+    if (!pose || poseLoopRunning) return;
+    poseLoopRunning = true;
+    poseFrameBusy = false;
+    const loop = async () => {
+      if (!poseLoopRunning) return;
+      if (!poseFrameBusy && pose && cameraConnected && webcamVideo.readyState >= 2) {
+        poseFrameBusy = true;
+        try {
+          await pose.send({ image: webcamVideo });
+        } catch (err) {
+          // Un cuadro fallido ocasional no debe detener el bucle.
+        }
+        poseFrameBusy = false;
+      }
+      if (poseLoopRunning) requestAnimationFrame(loop);
+    };
+    requestAnimationFrame(loop);
   }
 
   // Dibuja la cámara en el recuadro en cada cuadro de pantalla — siempre,
