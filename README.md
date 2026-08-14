@@ -29,6 +29,10 @@ IdeaBoard) — **requerida para la demo de la feria**: luz verde = buena postura
   y dar permiso de cámara.
 - 🎯 **Calibración personal**: en vez de un número genérico, el sistema aprende TU
   propia postura correcta (3 señales: hombros, cadera y cabeza).
+- 🛡️ **Resistente a falsos positivos** (Kesta 13): si una mano tapa la cara/hombro un
+  instante (rascarte, acomodarte el pelo) o si echas la cabeza muy atrás — lo primero
+  que prueba alguien que no conoce el prototipo — ErgoAI no confía en ese cuadro y
+  mantiene el último estado bueno, en vez de reportar un problema de postura falso.
 - 🚦 **3 estados reales**: buena / atención / mala postura — no solo bueno-o-malo — los
   mismos 3 que ve reflejados la placa física.
 - 📈 **Sesión en vivo**: línea de tiempo en tiempo real de los últimos minutos de tu
@@ -85,8 +89,10 @@ ErgoAI/
 │   └── tailwind.css               # Entrada de Tailwind: tema + "componentes base" + efectos Aceternity
 ├── app.js                     # Lógica: IA, cámara, historial, notificaciones, buzzer
 ├── js/
+│   ├── loader.js                  # Carga lo decorativo DESPUÉS de lo crítico (ver "Rendimiento")
 │   ├── effects.js                 # Lenis, GSAP/ScrollTrigger, Motion (entrada al hacer scroll), partículas
 │   └── three-bg.js                # Fondo 3D interactivo (Three.js), reacciona al cursor
+├── vendor/                    # Motion/GSAP/ScrollTrigger/Lenis/Three.js autohospedados (ver "Rendimiento")
 ├── package.json                # Solo para compilar Tailwind — el sitio en sí no necesita Node
 ├── manifest.json              # Para poder "instalar" la página como app
 ├── assets/                    # Logo e íconos
@@ -127,6 +133,35 @@ sin tu cambio nuevo.
 
 Y abre `http://localhost:8000` en tu navegador. La cámara solo funciona en `https://`
 o en `localhost` — es una regla de seguridad de los navegadores, no un error nuestro.
+
+## Rendimiento (Kesta 13)
+
+Kesta 12 agregó bastantes librerías decorativas (Tailwind, Motion, GSAP,
+ScrollTrigger, Lenis, Three.js) y eso, en la práctica, metió lag — sobre
+todo grave con mal internet. Kesta 13 lo reorganizó así:
+
+- **Todo lo decorativo está autohospedado** en `vendor/` — ya NO se
+  descarga de un CDN externo (jsdelivr). Solo MediaPipe (la IA de
+  postura) sigue viniendo de un CDN, porque sus modelos son demasiado
+  grandes para guardarlos en el repositorio.
+- **Lo decorativo se carga DESPUÉS de que la página ya esté lista**
+  (`js/loader.js`, después del evento `load`) — la cámara, la IA y la
+  placa nunca esperan a Motion/GSAP/Three.js.
+- **En conexiones lentas o con "modo ahorro de datos" activado**
+  (`navigator.connection`), lo decorativo se **salta por completo** —
+  cero bytes de más. Las secciones se muestran de una vez, sin animación
+  de entrada, en vez de arriesgarse a quedar invisibles esperando una
+  librería que nunca llegó a cargar.
+- **El fondo 3D y las partículas se PAUSAN mientras la cámara está
+  conectada** (evento `ergoai:camera`, que manda `app.js`) — mientras
+  estás usando la función que de verdad importa, nada decorativo le
+  compite presupuesto de CPU/GPU a MediaPipe.
+- Menos partículas, menos puntos en el fondo 3D, tope de resolución más
+  bajo, y limitado a ~24 fps (no necesita los 60 completos).
+
+Si aun así notas lag en una computadora en particular, lo más rápido es
+abrir la consola del navegador (F12) — `js/loader.js` avisa ahí mismo si
+detectó una conexión lenta y decidió saltarse los efectos.
 
 ## Hardware: alerta física (requerida en la feria)
 

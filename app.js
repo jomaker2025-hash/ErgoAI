@@ -311,6 +311,24 @@
   const HIP_TILT_MAX = 8; // grados de inclinación de cadera
   const DEFAULT_HEAD_GOOD = 0.27; // referencia genérica si nunca calibraste
   const DEFAULT_HEAD_ATTENTION = 0.23;
+
+  // Arreglo (Kesta 13): qué tan segura tiene que estar la IA de dónde
+  // está un punto para confiar en él. Antes solo se revisaba en la
+  // cadera; una mano pasando cerca de la cara o el hombro (rascarte,
+  // acomodarte el pelo, apoyar la barbilla) bajaba la confianza de esos
+  // puntos SIN que el código se diera cuenta, y el hombro/nariz seguían
+  // usándose igual — eso es lo que se veía como que "una mano afecta la
+  // postura". Ahora, si la nariz o los hombros no son confiables, el
+  // cuadro se descarta entero (se mantiene el último estado confirmado)
+  // en vez de arriesgarse a clasificar con datos malos.
+  const LANDMARK_VISIBILITY_MIN = 0.5;
+  // Techo de lo que es una proporción realista de "cabeza alta". Al
+  // echar la cabeza MUY atrás (mirar el techo) — justo lo primero que
+  // prueba alguien que no sabe cómo funciona el prototipo — la nariz se
+  // proyecta rarísimo en la imagen 2D y puede dar una proporción
+  // enorme, fuera de cualquier postura real. Se trata igual que un dato
+  // no confiable, no como una "postura excelente" falsa.
+  const HEAD_RATIO_PLAUSIBLE_MAX = 0.5;
   // Con calibración personal, "bueno" y "atención" se miden relativo a TU
   // propio número, no al genérico:
   const HEAD_MARGIN_ATTENTION = 0.02; // cuánto por debajo de tu calibración ya es "atención"
@@ -442,6 +460,15 @@
     sessionModule.hidden = true;
 
     sendHwCommand('OFF');
+
+    // Kesta 13: avisa a los efectos decorativos (fondo 3D, partículas)
+    // que ya pueden volver a dibujar — mientras la cámara está conectada
+    // se quedan pausados, para no competirle presupuesto de CPU/GPU a la
+    // detección de postura real. Un CustomEvent (no una variable
+    // compartida) para que app.js no tenga que saber que esos efectos
+    // existen — si ninguno está cargado, este evento simplemente no lo
+    // escucha nadie.
+    window.dispatchEvent(new CustomEvent('ergoai:camera', { detail: { connected: false } }));
   }
 
   function onCameraConnected() {
@@ -487,6 +514,10 @@
     // Si la placa del buzzer ya estaba conectada, avísale el estado actual
     // de una vez (en vez de esperar hasta 1 segundo al primer tick)
     syncHardwareState(confirmedState);
+
+    // Kesta 13: avisa a los efectos decorativos que se pausen mientras
+    // la cámara está activa (ver la nota completa en disconnectCamera).
+    window.dispatchEvent(new CustomEvent('ergoai:camera', { detail: { connected: true } }));
   }
 
   function initPoseIfNeeded() {
@@ -605,6 +636,12 @@
     if (!results.poseLandmarks) return;
 
     const metrics = computePostureMetrics(results.poseLandmarks);
+    // Cuadro no confiable (mano tapando cara/hombro, ángulo de cabeza
+    // extremo): no lo uses para clasificar NI para calibrar — se
+    // mantiene el último estado confirmado y se espera al siguiente
+    // cuadro bueno, en vez de "aprenderte" un dato malo.
+    if (!metrics.reliable) return;
+
     if (calibrating) calibrationSamples.push(metrics.headRatio);
 
     updateConfirmedState(classifyPosture(metrics));
@@ -633,10 +670,23 @@
     // "problema" de postura que no existe.
     const hipVisible = (lHip.visibility || 0) > 0.5 && (rHip.visibility || 0) > 0.5;
 
+    // Arreglo (Kesta 13): la nariz y los hombros SÍ son obligatorios para
+    // clasificar (a diferencia de la cadera) — pero si una mano los tapa
+    // un instante, "visibility" cae y no hay que confiar en ese cuadro.
+    const noseVisible = (nose.visibility || 0) > LANDMARK_VISIBILITY_MIN;
+    const shouldersVisible = (lSh.visibility || 0) > LANDMARK_VISIBILITY_MIN && (rSh.visibility || 0) > LANDMARK_VISIBILITY_MIN;
+
+    const headRatio = shoulderWidth > 0 ? (shCenterY - nose.y) / shoulderWidth : 0;
+    const headRatioPlausible = headRatio <= HEAD_RATIO_PLAUSIBLE_MAX;
+
     return {
       shoulderTilt: tiltAngle(lSh, rSh),
       hipTilt: hipVisible ? tiltAngle(lHip, rHip) : null,
-      headRatio: shoulderWidth > 0 ? (shCenterY - nose.y) / shoulderWidth : 0,
+      headRatio,
+      // false = no confíes en este cuadro para clasificar (mano tapando
+      // la cara/hombro, o un ángulo de cabeza tan extremo que la nariz
+      // ya no se está proyectando de forma realista).
+      reliable: noseVisible && shouldersVisible && headRatioPlausible,
     };
   }
 

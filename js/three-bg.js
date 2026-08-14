@@ -1,5 +1,5 @@
 /* ============================================================
-   ErgoAI — Fondo 3D interactivo (Kesta 12)
+   ErgoAI — Fondo 3D interactivo (Kesta 12, aligerado en Kesta 13)
    ------------------------------------------------------------
    Nota sobre por qué esto NO es "React Three Fiber": R3F es solo la
    envoltura de React para Three.js — Three.js "de a pie" (el que se
@@ -8,15 +8,18 @@
    despacio sola y además reacciona un poco a hacia dónde apunta el
    mouse (un "paralaje" suave).
 
-   Es un módulo de JavaScript (type="module" en index.html) para poder
-   usar `import` con la versión de Three.js del CDN, fijada a un
-   número exacto — mismo cuidado que con MediaPipe en app.js, para no
-   toparnos con un desajuste de versión.
+   Es un módulo de JavaScript (type="module", cargado por js/loader.js)
+   para poder usar `import`. Kesta 13: three.module.js ya NO viene del
+   CDN — está autohospedado en vendor/ (ver README) para no depender de
+   internet de terceros el día de la feria, y este script se carga de
+   último a propósito, después de que la cámara/IA ya estén listas.
 
    A propósito vive separado de app.js y de effects.js: si el
-   navegador no tiene WebGL, o el CDN no responde, esto falla solo
+   navegador no tiene WebGL, o el archivo no carga, esto falla solo
    (try/catch) y el resto de ErgoAI — lo que de verdad importa para la
-   feria — sigue funcionando igual.
+   feria — sigue funcionando igual. Y se pausa solo mientras la cámara
+   está conectada (ver el listener de 'ergoai:camera' más abajo), para
+   no competirle presupuesto de GPU a la detección de postura.
    ============================================================ */
 
 try {
@@ -24,21 +27,24 @@ try {
   const canvas = document.getElementById('threeCanvas');
 
   if (canvas && !prefersReducedMotion) {
-    const THREE = await import('https://cdn.jsdelivr.net/npm/three@0.185.1/build/three.module.js');
+    const THREE = await import('../vendor/three.module.min.js');
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
     camera.position.z = 9;
 
-    const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: false });
-    // Tope al pixel ratio: en pantallas 4K/retina, pedir el pixel ratio
-    // completo puede costar mucho más GPU sin verse mejor — la cámara y
-    // la IA de postura son la prioridad de esta página, no este fondo.
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+    const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: false, powerPreference: 'low-power' });
+    // Arreglo (Kesta 13): tope al pixel ratio MÁS bajo que antes (1 en
+    // vez de 1.5) — en pantallas 4K/retina, pedir el pixel ratio completo
+    // puede costar mucho más GPU sin verse mejor. La cámara y la IA de
+    // postura son la prioridad de esta página, no este fondo.
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1));
     renderer.setSize(window.innerWidth, window.innerHeight);
 
     // ---------- La nube de puntos: una esfera hecha de partículas ----------
-    const COUNT = 900;
+    // Arreglo (Kesta 13): menos puntos que antes (era 900) — la mitad de
+    // los vértices para dibujar, la mitad de la memoria de video.
+    const COUNT = 420;
     const positions = new Float32Array(COUNT * 3);
     const colors = new Float32Array(COUNT * 3);
     // Paleta del logo (teal, naranja, coral, rosa, morado) — los mismos
@@ -97,16 +103,25 @@ try {
       renderer.setSize(window.innerWidth, window.innerHeight);
     });
 
-    // ---------- Bucle de dibujo, limitado a ~30fps ----------
+    // ---------- Bucle de dibujo, limitado a ~24fps ----------
     // Es un fondo decorativo — no necesita los 60fps completos, y así le
     // deja más presupuesto de CPU/GPU a lo que de verdad importa (la
-    // cámara + MediaPipe). Se pausa solo si la pestaña no está visible.
-    const FRAME_INTERVAL = 1000 / 30;
+    // cámara + MediaPipe). Se pausa solo si la pestaña no está visible
+    // O si la cámara de ErgoAI está conectada (evento 'ergoai:camera',
+    // que manda app.js) — esto es lo que de verdad soluciona el "lag al
+    // abrir la cámara": mientras estás usando la función que SÍ importa,
+    // este fondo deja de dibujar por completo, no solo más lento.
+    const FRAME_INTERVAL = 1000 / 24;
     let lastFrameTime = 0;
-    let running = true;
+    let tabVisible = !document.hidden;
+    let cameraActive = false;
+
+    function shouldRun() {
+      return tabVisible && !cameraActive;
+    }
 
     function animate(now) {
-      if (!running) return;
+      if (!shouldRun()) return;
       requestAnimationFrame(animate);
       if (now - lastFrameTime < FRAME_INTERVAL) return;
       lastFrameTime = now;
@@ -125,8 +140,19 @@ try {
     requestAnimationFrame(animate);
 
     document.addEventListener('visibilitychange', () => {
-      running = !document.hidden;
-      if (running) requestAnimationFrame(animate);
+      tabVisible = !document.hidden;
+      if (shouldRun()) requestAnimationFrame(animate);
+    });
+
+    window.addEventListener('ergoai:camera', (e) => {
+      cameraActive = !!(e.detail && e.detail.connected);
+      if (cameraActive) {
+        // Deja el fondo limpio (nada a medio dibujar) mientras la cámara
+        // está en uso, en vez de congelarlo en el último cuadro.
+        renderer.clear();
+      } else if (shouldRun()) {
+        requestAnimationFrame(animate);
+      }
     });
   }
 } catch (err) {

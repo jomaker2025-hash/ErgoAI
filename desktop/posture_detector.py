@@ -80,6 +80,14 @@ CADERA_MAX = 8
 CABEZA_GOOD = 0.27
 CABEZA_ATTENTION = 0.23
 
+# Arreglo (Kesta 13): techo de lo que es una proporción realista de
+# "cabeza alta". Al echar la cabeza MUY atrás (mirar el techo) — justo
+# lo primero que prueba alguien que no conoce el prototipo — la nariz
+# se proyecta rarísimo en la imagen 2D de la cámara y cabeza_ratio
+# puede dispararse muy por encima de cualquier postura real. En vez de
+# reportar eso como una "postura excelente" falsa, se recorta al techo.
+CABEZA_RATIO_MAX_REALISTA = 0.5
+
 # -----------------------------------------------------
 # Umbrales "de profundidad" (usan la Z de MediaPipe)
 # -----------------------------------------------------
@@ -291,6 +299,7 @@ def calcular_metricas(landmarks, mp_pose) -> Metricas:
 
     distancia_cabeza = hombro_y - nariz.y
     cabeza_ratio = distancia_cabeza / ancho_hombros if ancho_hombros > 0 else 0.0
+    cabeza_ratio = min(cabeza_ratio, CABEZA_RATIO_MAX_REALISTA)
 
     # ---------------------------------------------------------
     # Joroba / espalda encorvada, SIN usar Z (2D puro)

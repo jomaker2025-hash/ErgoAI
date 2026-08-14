@@ -147,8 +147,12 @@
       let particles = [];
       let width = 0;
       let height = 0;
-      let dpr = Math.min(window.devicePixelRatio || 1, 2);
+      // Arreglo (Kesta 13): tope de pixel ratio más bajo (era 2) — en un
+      // canvas del tamaño de toda la pantalla, esto es la diferencia
+      // entre dibujar ~2 millones de píxeles por cuadro o el doble.
+      let dpr = Math.min(window.devicePixelRatio || 1, 1.5);
       let rafId = null;
+      let cameraActive = false;
 
       function resize() {
         width = window.innerWidth;
@@ -159,9 +163,10 @@
         canvas.style.height = `${height}px`;
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-        // Una partícula por cada ~14 000px² de pantalla, con un tope —
-        // en una pantalla de feria (proyector, TV) no se dispara el conteo.
-        const targetCount = Math.min(70, Math.round((width * height) / 14000));
+        // Arreglo (Kesta 13): menos partículas por pantalla (antes 1 cada
+        // 14 000px², tope 70) y tope más bajo — en una pantalla de feria
+        // (proyector, TV grande) el conteo antes se disparaba.
+        const targetCount = Math.min(45, Math.round((width * height) / 20000));
         particles = Array.from({ length: targetCount }, () => makeParticle());
       }
 
@@ -202,15 +207,30 @@
       window.addEventListener('resize', resize);
       rafId = requestAnimationFrame(tick);
 
+      function pause() {
+        if (rafId) cancelAnimationFrame(rafId);
+        rafId = null;
+      }
+      function resume() {
+        if (!rafId && !document.hidden && !cameraActive) rafId = requestAnimationFrame(tick);
+      }
+
       // Pausa el dibujo si la pestaña no está visible (ahorra batería/CPU
       // sin razón — el usuario ni lo va a ver) y lo retoma al volver.
       document.addEventListener('visibilitychange', () => {
-        if (document.hidden) {
-          if (rafId) cancelAnimationFrame(rafId);
-          rafId = null;
-        } else if (!rafId) {
-          rafId = requestAnimationFrame(tick);
-        }
+        if (document.hidden) pause();
+        else resume();
+      });
+
+      // Arreglo (Kesta 13): pausa TAMBIÉN mientras la cámara de ErgoAI
+      // está conectada (evento que manda app.js) — el dibujo de
+      // partículas en canvas 2D es barato comparado con el fondo 3D,
+      // pero sigue siendo trabajo de más justo cuando la IA de postura
+      // necesita todo el rendimiento posible.
+      window.addEventListener('ergoai:camera', (e) => {
+        cameraActive = !!(e.detail && e.detail.connected);
+        if (cameraActive) pause();
+        else resume();
       });
     }
   } catch (err) {

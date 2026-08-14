@@ -253,7 +253,7 @@
 
     <footer class="footer reveal-on-scroll">
       <p>ErgoAI © 2026 — Proyecto Kesta GHS</p>
-      <p class="version-tag">Kesta 12 · Tailwind, animaciones de scroll &amp; fondo 3D</p>
+      <p class="version-tag">Kesta 13 · optimizado para poco internet &amp; detección más confiable</p>
     </footer>
   </div>
 
@@ -294,34 +294,23 @@
        vez), lo que dejaba DOS accesos abiertos a la misma cámara física y
        causaba el "bugueo" al abrir. app.js ahora manda los cuadros con su
        propio bucle, sobre la única cámara que ya conectamos. -->
-  <!-- Motion (motion.dev) — sucesor de Framer Motion para JS puro, sin
-       necesidad de React ni build tools. Se expone como variable global
-       `Motion`, de la que sacamos `animate`, `scroll`, etc. en app.js. -->
-  <script src="https://cdn.jsdelivr.net/npm/motion@13.1.0/dist/motion.js" crossorigin="anonymous"></script>
-
-  <!-- GSAP + ScrollTrigger: animaciones "complejas" atadas a la posición
-       del scroll (a diferencia de Motion arriba, que solo anima "entra en
-       pantalla sí/no", GSAP/ScrollTrigger puede atar el AVANCE del scroll
-       directo a una animación — por ejemplo, que el fondo se mueva más o
-       menos según qué tanto has bajado la página). -->
-  <script src="https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/gsap.min.js" crossorigin="anonymous"></script>
-  <script src="https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/ScrollTrigger.min.js" crossorigin="anonymous"></script>
-
-  <!-- Lenis (Studio Freight): scroll suave ("smooth scroll") en toda la
-       página — reemplaza el scroll brusco normal del navegador por uno
-       con inercia, y queda sincronizado con GSAP/ScrollTrigger en
-       js/effects.js para que las animaciones de scroll no se desfasen. -->
-  <script src="https://cdn.jsdelivr.net/npm/lenis@1.3.26/dist/lenis.min.js" crossorigin="anonymous"></script>
-
   <script src="app.js"></script>
 
-  <!-- ======================= EFECTOS VISUALES (Kesta 12) =======================
-       Todo lo de abajo es SOLO decorativo (partículas, fondo 3D, scroll
-       suave, animaciones de entrada) — a propósito en archivos aparte de
-       app.js, para no arriesgar la lógica de cámara/IA/placa si algo
-       falla aquí (si por ejemplo el navegador bloquea WebGL, el resto de
-       ErgoAI sigue funcionando igual). -->
-  <script src="js/effects.js"></script>
-  <script type="module" src="js/three-bg.js"></script>
+  <!-- ======================= EFECTOS VISUALES (Kesta 12, aligerado en Kesta 13) =======================
+       Motion, GSAP, ScrollTrigger, Lenis y Three.js (fondo 3D, partículas,
+       scroll suave, animaciones de entrada) YA NO se cargan aquí directo.
+       Todo lo decorativo es SOLO decorativo — a propósito en archivos
+       aparte de app.js, para no arriesgar la lógica de cámara/IA/placa.
+
+       Arreglo (Kesta 13): cargar 5 librerías más de entrada (~900 KB)
+       antes de que la página se sintiera lista era justo la causa del
+       "delay y lag" reportado, sobre todo grave con mal internet el día
+       de la feria. Ahora js/loader.js las pide DESPUÉS de que la página
+       ya cargó por completo, y las salta enteras en conexiones lentas /
+       modo ahorro de datos — la cámara, la IA y la placa nunca esperan a
+       esto. Las librerías mismas ya no vienen de un CDN externo: están
+       autohospedadas en vendor/ (ver README), para no depender de
+       internet de terceros. -->
+  <script src="js/loader.js"></script>
 </body>
 </html>
