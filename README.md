@@ -53,7 +53,11 @@ IdeaBoard) — **requerida para la demo de la feria**: luz verde = buena postura
 
 | Parte | Tecnología |
 |---|---|
-| Interfaz | HTML, CSS y JavaScript puro (sin frameworks) |
+| Interfaz | HTML + JavaScript puro (sin frameworks), estilos con Tailwind CSS + CSS a mano |
+| Estilos | [Tailwind CSS v4](https://tailwindcss.com) (compilado con su CLI, ver abajo) para lo nuevo + `style.css` a mano para el diseño ya afinado de antes |
+| Animaciones de scroll | [Motion](https://motion.dev) (sucesor vanilla de Framer Motion) para animar la entrada de las secciones; [GSAP](https://gsap.com) + ScrollTrigger para animaciones atadas al progreso del scroll |
+| Scroll suave | [Lenis](https://lenis.darkroom.engineering) (Studio Freight) |
+| Fondo 3D interactivo | [Three.js](https://threejs.org) puro (no React Three Fiber: esa es solo la envoltura de React, Three.js "de a pie" funciona igual sin React) |
 | Detección de postura (web) | [MediaPipe Pose](https://developers.google.com/mediapipe) (corre en el navegador, con un bucle propio de envío de cuadros — no la utilidad "Camera" de MediaPipe, que abre su propio acceso a la cámara por dentro y causaba conflictos) |
 | Detección de postura (escritorio) | MediaPipe Pose + OpenCV, en Python (`desktop/`) |
 | Cámara | La del propio dispositivo, vía `getUserMedia` (web) u OpenCV (escritorio) |
@@ -61,15 +65,31 @@ IdeaBoard) — **requerida para la demo de la feria**: luz verde = buena postura
 | Guardado de progreso | `localStorage` del navegador (sin servidor/base de datos) |
 | Hosting | GitHub Pages |
 
+> **¿Por qué no shadcn/ui ni React Three Fiber?** Las dos son herramientas
+> exclusivas de React (shadcn genera componentes `.tsx`; React Three Fiber
+> es la envoltura de React para Three.js) — no existen para HTML/CSS/JS
+> puro. En vez de reescribir todo ErgoAI en React (con el riesgo de tener
+> que volver a probar a fondo la cámara/IA/placa justo antes de la feria),
+> se recreó el mismo lenguaje visual a mano con Tailwind (`.ui-btn`,
+> `.ui-card`, `.ui-badge` en `styles/tailwind.css`) y el mismo fondo 3D
+> con Three.js puro (`js/three-bg.js`).
+
 ## Estructura del proyecto
 
 ```
 ErgoAI/
-├── index.html              # Estructura de la página
-├── style.css                # Todo el diseño visual
-├── app.js                   # Lógica: IA, cámara, historial, notificaciones, buzzer
-├── manifest.json             # Para poder "instalar" la página como app
-├── assets/                   # Logo e íconos
+├── index.html                # Estructura de la página
+├── style.css                  # Diseño visual ya afinado (Kesta 1-11)
+├── tailwind.build.css         # Tailwind ya compilado — el que de verdad sirve GitHub Pages
+├── styles/
+│   └── tailwind.css               # Entrada de Tailwind: tema + "componentes base" + efectos Aceternity
+├── app.js                     # Lógica: IA, cámara, historial, notificaciones, buzzer
+├── js/
+│   ├── effects.js                 # Lenis, GSAP/ScrollTrigger, Motion (entrada al hacer scroll), partículas
+│   └── three-bg.js                # Fondo 3D interactivo (Three.js), reacciona al cursor
+├── package.json                # Solo para compilar Tailwind — el sitio en sí no necesita Node
+├── manifest.json              # Para poder "instalar" la página como app
+├── assets/                    # Logo e íconos
 ├── hardware/
 │   ├── ideaboard_buzzer/
 │   │   └── code.py               # Programa de la placa del buzzer (CircuitPython)
@@ -84,11 +104,26 @@ ErgoAI/
 
 ## Cómo correrlo localmente
 
-Es un sitio 100% estático — no necesita instalar nada especial:
+Es un sitio 100% estático — el `tailwind.build.css` ya viene compilado y
+subido al repositorio, así que para solo VERLO no hace falta instalar nada:
 
 ```bash
 python -m http.server 8000
 ```
+
+Node/npm solo hacen falta si vas a **editar los estilos de Tailwind**
+(clases nuevas en `styles/tailwind.css` o clases de Tailwind en
+`index.html`):
+
+```bash
+npm install          # una sola vez
+npm run watch:css    # recompila solo mientras editas
+npm run build:css    # compila una vez (antes de subir tus cambios)
+```
+
+Si olvidas correr `npm run build:css` antes de subir un cambio de estilos,
+la página seguirá funcionando — solo que con el CSS compilado más viejo,
+sin tu cambio nuevo.
 
 Y abre `http://localhost:8000` en tu navegador. La cámara solo funciona en `https://`
 o en `localhost` — es una regla de seguridad de los navegadores, no un error nuestro.

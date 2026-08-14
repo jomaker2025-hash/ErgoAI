@@ -12,3 +12,9 @@ desktop/ergoai_log.jsonl
 # Editor/OS
 .DS_Store
 Thumbs.db
+
+# Node (Tailwind CSS) — el paquete se reinstala con "npm install", no
+# hace falta subirlo. tailwind.build.css SÍ se sube: es el CSS ya
+# compilado que de verdad sirve GitHub Pages (un sitio estático no
+# puede "correr" Tailwind él solo).
+node_modules/

@@ -22,6 +22,12 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
 
+  <!-- Tailwind CSS (compilado: ver styles/tailwind.css → "npm run build:css").
+       Va ANTES de style.css a propósito: style.css es el diseño ya afinado
+       y probado del sitio, así que gana en cualquier choque; Tailwind aporta
+       las utilidades para lo NUEVO (efectos estilo Aceternity, componentes
+       base, fondos de partículas/3D) sin arriesgar lo que ya funcionaba. -->
+  <link rel="stylesheet" href="tailwind.build.css" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -46,10 +52,18 @@
   <!-- Manchas de color difuminadas de fondo, puramente decorativas -->
   <div class="bg-glow"></div>
 
+  <!-- Fondos decorativos "vivos" (Kesta 12): partículas en 2D (js/effects.js)
+       y geometría 3D interactiva con Three.js (js/three-bg.js). Ambos son
+       puramente decorativos y quedan detrás de todo el contenido — si algo
+       falla al cargarlos (sin internet, sin WebGL, etc.) el resto de
+       ErgoAI sigue funcionando exactamente igual. -->
+  <canvas id="particleCanvas" class="particle-field" aria-hidden="true"></canvas>
+  <canvas id="threeCanvas" class="three-field" aria-hidden="true"></canvas>
+
   <div class="app" id="app">
 
     <!-- ======================= ENCABEZADO ======================= -->
-    <header class="topbar">
+    <header class="topbar reveal-on-scroll">
       <div class="brand">
         <div class="logo-badge">
           <img src="assets/logo-kesta.png" alt="Logo KESTA" class="logo-img"
@@ -97,7 +111,7 @@
     </header>
 
     <!-- ======================= CONEXIÓN DE LA CÁMARA ======================= -->
-    <section class="camera-setup" id="cameraSetup">
+    <section class="camera-setup aceternity-spotlight reveal-on-scroll" id="cameraSetup">
       <div class="camera-setup-text">
         <p class="camera-setup-title">Conecta tu cámara para detectar tu postura</p>
         <p class="camera-setup-sub">Funciona con la cámara de cualquier computadora, tablet o celular — no necesitas instalar nada ni estar en ninguna red especial.</p>
@@ -123,7 +137,7 @@
 
     <!-- ======================= ALERTA FÍSICA (requerida en la feria) =======================
          Placa aparte (IdeaBoard: buzzer + luz LED) conectada por cable USB. -->
-    <section class="camera-setup hardware-setup" id="hardwareSetup">
+    <section class="camera-setup hardware-setup aceternity-spotlight reveal-on-scroll" id="hardwareSetup">
       <div class="camera-setup-text">
         <p class="camera-setup-title">🔌 Placa de alerta física <span class="required-badge">Requerida en la feria</span></p>
         <p class="camera-setup-sub">Conecta por cable USB la IdeaBoard: luz verde = buena postura, luz ámbar = postura dudosa, luz roja + buzzer = mala postura. Disponible en Chrome o Edge de computadora.</p>
@@ -139,15 +153,23 @@
     <video id="webcamVideo" class="camera-stream-hidden" autoplay playsinline muted></video>
 
     <!-- ======================= ESTADO EN VIVO ======================= -->
-    <main class="dashboard">
-      <!-- Tarjeta grande: estado en vivo de la postura -->
-      <section class="status-card" id="statusCard">
-        <span class="live-badge"><span class="live-dot"></span> EN VIVO</span>
-        <div class="status-icon">🧍</div>
-        <p class="status-label">Estado actual</p>
-        <h2 class="status-value" id="statusValue">Buena Postura</h2>
-        <p class="status-sub" id="statusSub">Sigue así, tu espalda te lo agradece</p>
-      </section>
+    <main class="dashboard reveal-on-scroll">
+      <!-- Anillo con gradiente animado estilo Aceternity ("Moving Border")
+           alrededor de la tarjeta principal — puramente decorativo, el
+           #statusCard de adentro no cambia en nada (mismo id, mismas
+           clases que app.js ya controla). -->
+      <div class="aceternity-border">
+        <div class="aceternity-border-inner">
+          <!-- Tarjeta grande: estado en vivo de la postura -->
+          <section class="status-card" id="statusCard">
+            <span class="live-badge"><span class="live-dot"></span> EN VIVO</span>
+            <div class="status-icon">🧍</div>
+            <p class="status-label">Estado actual</p>
+            <h2 class="status-value" id="statusValue">Buena Postura</h2>
+            <p class="status-sub" id="statusSub">Sigue así, tu espalda te lo agradece</p>
+          </section>
+        </div>
+      </div>
     </main>
 
     <!-- ======================= SESIÓN EN VIVO (tiempo real) =======================
@@ -171,7 +193,7 @@
     </section>
 
     <!-- ======================= HISTORIAL (aparte) ======================= -->
-    <section class="history-module" id="historyModule">
+    <section class="history-module reveal-on-scroll" id="historyModule">
       <div class="history-header">
         <div>
           <p class="module-eyebrow">Historial</p>
@@ -202,25 +224,25 @@
         <p class="info-intro">Pasar horas encorvado frente a una pantalla no es solo "verse mal" — tiene consecuencias reales. Así es como ErgoAI ayuda con cada una.</p>
       </div>
       <div class="info-grid">
-        <article class="info-card">
+        <article class="info-card aceternity-spotlight reveal-on-scroll">
           <span class="info-icon">🦴</span>
           <h3>Dolor de espalda y cuello</h3>
           <p>Encorvarte por horas tensiona la columna y los músculos del cuello, y con el tiempo se vuelve dolor crónico.</p>
           <p class="info-solution"><strong>ErgoAI:</strong> detecta el momento exacto en que te encorvas y te avisa al instante — en pantalla, con sonido y con la luz de la placa.</p>
         </article>
-        <article class="info-card">
+        <article class="info-card aceternity-spotlight reveal-on-scroll">
           <span class="info-icon">🤕</span>
           <h3>Dolores de cabeza tensionales</h3>
           <p>La mala postura tensa los músculos del cuello y el cuero cabelludo, una causa común de dolores de cabeza.</p>
           <p class="info-solution"><strong>ErgoAI:</strong> el estado "Atención" te avisa antes de llegar a mala postura, para corregir a tiempo.</p>
         </article>
-        <article class="info-card">
+        <article class="info-card aceternity-spotlight reveal-on-scroll">
           <span class="info-icon">😮‍💨</span>
           <h3>Menos concentración y energía</h3>
           <p>Encorvarte comprime el pecho y los pulmones, reduciendo el oxígeno que le llega a tu cerebro.</p>
           <p class="info-solution"><strong>ErgoAI:</strong> recordatorios de pausa activa cada 30 minutos, para moverte y respirar mejor.</p>
         </article>
-        <article class="info-card">
+        <article class="info-card aceternity-spotlight reveal-on-scroll">
           <span class="info-icon">📉</span>
           <h3>Problemas a largo plazo</h3>
           <p>Años de mala postura pueden derivar en problemas posturales permanentes, difíciles de revertir.</p>
@@ -229,9 +251,9 @@
       </div>
     </section>
 
-    <footer class="footer">
+    <footer class="footer reveal-on-scroll">
       <p>ErgoAI © 2026 — Proyecto Kesta GHS</p>
-      <p class="version-tag">Kesta 11 · privacidad, cámara sin bugueo &amp; acabado premium</p>
+      <p class="version-tag">Kesta 12 · Tailwind, animaciones de scroll &amp; fondo 3D</p>
     </footer>
   </div>
 
@@ -276,6 +298,30 @@
        necesidad de React ni build tools. Se expone como variable global
        `Motion`, de la que sacamos `animate`, `scroll`, etc. en app.js. -->
   <script src="https://cdn.jsdelivr.net/npm/motion@13.1.0/dist/motion.js" crossorigin="anonymous"></script>
+
+  <!-- GSAP + ScrollTrigger: animaciones "complejas" atadas a la posición
+       del scroll (a diferencia de Motion arriba, que solo anima "entra en
+       pantalla sí/no", GSAP/ScrollTrigger puede atar el AVANCE del scroll
+       directo a una animación — por ejemplo, que el fondo se mueva más o
+       menos según qué tanto has bajado la página). -->
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/gsap.min.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/ScrollTrigger.min.js" crossorigin="anonymous"></script>
+
+  <!-- Lenis (Studio Freight): scroll suave ("smooth scroll") en toda la
+       página — reemplaza el scroll brusco normal del navegador por uno
+       con inercia, y queda sincronizado con GSAP/ScrollTrigger en
+       js/effects.js para que las animaciones de scroll no se desfasen. -->
+  <script src="https://cdn.jsdelivr.net/npm/lenis@1.3.26/dist/lenis.min.js" crossorigin="anonymous"></script>
+
   <script src="app.js"></script>
+
+  <!-- ======================= EFECTOS VISUALES (Kesta 12) =======================
+       Todo lo de abajo es SOLO decorativo (partículas, fondo 3D, scroll
+       suave, animaciones de entrada) — a propósito en archivos aparte de
+       app.js, para no arriesgar la lógica de cámara/IA/placa si algo
+       falla aquí (si por ejemplo el navegador bloquea WebGL, el resto de
+       ErgoAI sigue funcionando igual). -->
+  <script src="js/effects.js"></script>
+  <script type="module" src="js/three-bg.js"></script>
 </body>
 </html>

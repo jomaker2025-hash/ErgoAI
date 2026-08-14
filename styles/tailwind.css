@@ -1,0 +1,181 @@
+/* ============================================================
+   ErgoAI — Entrada de Tailwind CSS (Kesta 12)
+   ------------------------------------------------------------
+   Esto es lo único que se le manda al compilador de Tailwind. El
+   resultado (compilado, con solo las clases que de verdad se usan
+   en index.html/app.js) se guarda en tailwind.build.css, que es el
+   archivo que de verdad carga la página — GitHub Pages solo sirve
+   archivos estáticos, así que no puede "correr" Tailwind él mismo;
+   por eso el archivo compilado se sube al repositorio como cualquier
+   otro CSS.
+
+   Para recompilar mientras editas: npm run watch:css
+   Para compilar una vez (antes de subir cambios): npm run build:css
+   ============================================================ */
+
+@import "tailwindcss";
+
+/* Dónde buscar clases usadas (Tailwind v4 detecta el proyecto solo, pero
+   lo decimos explícito para no depender de la carpeta por defecto). */
+@source "../index.html";
+@source "../app.js";
+@source "../js/**/*.js";
+
+/* ---------- Tema: los mismos tokens de diseño que ya usa style.css,
+   ahora también disponibles como utilidades de Tailwind (bg-teal,
+   text-ink-muted, rounded-lg, etc.) — una sola fuente de verdad, sin
+   duplicar números de color. ---------- */
+@theme {
+  --color-canvas: #05050a;
+  --color-canvas-elevated: #101018;
+  --color-ink: #f5f5fa;
+  --color-ink-muted: #9797ad;
+
+  --color-teal: #16c9c9;
+  --color-orange: #ff7a29;
+  --color-coral: #ff4d6a;
+  --color-pink: #ee1f8f;
+  --color-purple: #8b2ff0;
+
+  --color-good: #0ca30c;
+  --color-warn: #fab219;
+  --color-bad: #d03b3b;
+
+  --radius-lg: 32px;
+  --radius-md: 24px;
+  --radius-sm: 16px;
+
+  --ease-fluid: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* Ángulo animado para el borde con gradiente en movimiento (efecto
+     estilo Aceternity "Moving Border") — se anima con @property más
+     abajo para que el navegador pueda interpolarlo suavemente. */
+  --angle: 0deg;
+}
+
+@property --angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+/* ============================================================
+   "Componentes base" estilo shadcn/ui, hechos a mano
+   ------------------------------------------------------------
+   shadcn/ui es una herramienta de React (su CLI genera componentes
+   .tsx con Radix UI) — no existe una versión para HTML/CSS/JS puro,
+   así que en vez de instalar shadcn recreamos el MISMO lenguaje
+   visual (bordes sutiles, esquinas redondeadas, estados de foco
+   marcados, esa sensación "de sistema de diseño") como clases de
+   Tailwind reutilizables. Cualquier botón/tarjeta/badge nuevo del
+   sitio parte de aquí en vez de reinventarse cada vez.
+   ============================================================ */
+@layer components {
+  .ui-card {
+    @apply relative rounded-3xl border border-white/10 bg-canvas-elevated/70 backdrop-blur-xl shadow-[0_1px_0_0_rgba(255,255,255,0.06)_inset];
+  }
+
+  /* Nota: .ui-btn-primary y .ui-btn-ghost se usan JUNTO con .ui-btn en el
+     HTML (ej. class="ui-btn ui-btn-primary") en vez de componerse con
+     @apply entre sí — en Tailwind v4 @apply solo acepta utilidades reales
+     del tema, no otra clase de @layer components. */
+  .ui-btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold
+           transition-all duration-200
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal/60 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas
+           disabled:opacity-50 disabled:cursor-not-allowed;
+    transition-timing-function: var(--ease-fluid);
+  }
+
+  .ui-btn-primary {
+    @apply text-canvas bg-gradient-to-r from-teal via-orange to-pink bg-[length:200%_auto] hover:bg-[position:100%_0] hover:-translate-y-0.5;
+  }
+
+  .ui-btn-ghost {
+    @apply border border-white/15 text-ink bg-white/5 hover:bg-white/10 hover:-translate-y-0.5;
+  }
+
+  .ui-badge {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-ink-muted;
+  }
+
+  /* ---------- Efecto Aceternity: borde con gradiente en movimiento ----------
+     Truco: el elemento .aceternity-border tiene un ::before del tamaño del
+     borde (con padding) pintado con un conic-gradient que gira sin parar
+     (animando --angle); adentro, .aceternity-border > * tiene su propio
+     fondo sólido, así que lo único que se alcanza a ver del gradiente es
+     el anillo delgado alrededor — el "borde animado" clásico de Aceternity. */
+  .aceternity-border {
+    @apply relative isolate rounded-lg p-[1.5px] overflow-hidden;
+  }
+  .aceternity-border::before {
+    content: '';
+    position: absolute;
+    inset: -40%;
+    z-index: -1;
+    background: conic-gradient(from var(--angle), var(--color-teal), var(--color-purple), var(--color-pink), var(--color-orange), var(--color-teal));
+    animation: aceternity-spin 4s linear infinite;
+  }
+  .aceternity-border > .aceternity-border-inner {
+    @apply relative rounded-lg bg-canvas-elevated;
+  }
+  @keyframes aceternity-spin {
+    to { --angle: 360deg; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .aceternity-border::before {
+      animation: none;
+    }
+  }
+
+  /* ---------- Efecto Aceternity: "spotlight" que sigue al mouse ----------
+     Mismo mecanismo que ya usaba .status-card (variables --mx/--my, ver
+     attachCursorGlow() en app.js) — reutilizado aquí como clase aparte
+     para poder ponérselo a más tarjetas sin repetir CSS. */
+  .aceternity-spotlight {
+    position: relative;
+    overflow: hidden;
+  }
+  .aceternity-spotlight::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    background: radial-gradient(280px circle at var(--mx, 50%) var(--my, 50%), rgba(22, 201, 201, 0.14), transparent 70%);
+    pointer-events: none;
+  }
+  .aceternity-spotlight:hover::after {
+    opacity: 1;
+  }
+
+  /* ---------- Fondo de partículas ----------
+     Contenedor para el <canvas> que dibuja las partículas (ver
+     js/effects.js). Va detrás de todo el contenido, fijo a la pantalla. */
+  .particle-field {
+    @apply fixed inset-0 -z-10 pointer-events-none;
+  }
+
+  /* ---------- Fondo 3D interactivo ----------
+     Contenedor para el <canvas> de Three.js. También fijo detrás del
+     contenido; pointer-events desactivado para no robarle clics a la UI
+     (la interacción es solo "reacciona al mover el mouse", no clics). */
+  .three-field {
+    @apply fixed inset-0 -z-20 pointer-events-none opacity-70;
+  }
+
+  /* Utilidad para las secciones que Motion anima al entrar en pantalla —
+     estado inicial (antes de que Motion las anime a su posición final),
+     como respaldo por si el script tardara en cargar o el usuario tiene
+     "reducir movimiento" activado (ver media query más abajo). */
+  .reveal-on-scroll {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .reveal-on-scroll {
+      opacity: 1;
+      transform: none;
+    }
+  }
+}

@@ -282,6 +282,13 @@
     });
   }
   attachCursorGlow(statusCard);
+  // Mismo brillo, ahora también en las tarjetas nuevas con el efecto
+  // "spotlight" estilo Aceternity (ver .aceternity-spotlight en
+  // styles/tailwind.css) — reutiliza la función de arriba, sin duplicar
+  // lógica.
+  attachCursorGlow(cameraSetup);
+  attachCursorGlow(document.getElementById('hardwareSetup'));
+  document.querySelectorAll('.info-card').forEach(attachCursorGlow);
   bindTooltip(barChart);
   bindTooltip(sessionStrip);
 
