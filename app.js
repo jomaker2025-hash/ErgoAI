@@ -319,16 +319,30 @@
   // puntos SIN que el código se diera cuenta, y el hombro/nariz seguían
   // usándose igual — eso es lo que se veía como que "una mano afecta la
   // postura". Ahora, si la nariz o los hombros no son confiables, el
-  // cuadro se descarta entero (se mantiene el último estado confirmado)
-  // en vez de arriesgarse a clasificar con datos malos.
-  const LANDMARK_VISIBILITY_MIN = 0.5;
-  // Techo de lo que es una proporción realista de "cabeza alta". Al
-  // echar la cabeza MUY atrás (mirar el techo) — justo lo primero que
-  // prueba alguien que no sabe cómo funciona el prototipo — la nariz se
-  // proyecta rarísimo en la imagen 2D y puede dar una proporción
-  // enorme, fuera de cualquier postura real. Se trata igual que un dato
-  // no confiable, no como una "postura excelente" falsa.
-  const HEAD_RATIO_PLAUSIBLE_MAX = 0.5;
+  // cuadro se descarta (se mantiene el último estado confirmado) en vez
+  // de arriesgarse a clasificar con datos malos.
+  //
+  // Arreglo (Kesta 14): 0.5 resultó DEMASIADO estricto — con luz normal
+  // de salón/mesa de feria, MediaPipe reporta "visibility" bastante más
+  // baja de lo que uno esperaría incluso con el cuerpo perfectamente a
+  // la vista, así que casi todos los cuadros se estaban descartando. Eso
+  // se sentía como "detección lenta" y "postura mala reconocida como
+  // buena" (el estado se quedaba congelado en el último confirmado) —
+  // y como el buzzer solo cambia cuando el estado confirmado cambia,
+  // también se sentía como "el buzzer no reacciona". Se baja a 0.3
+  // (sigue filtrando una oclusión real, pero ya no cuadros normales).
+  const LANDMARK_VISIBILITY_MIN = 0.3;
+  // Techo de lo que es una proporción realista de "cabeza alta", para
+  // detectar cuando alguien echa la cabeza MUY atrás (mirar el techo —
+  // justo lo primero que prueba alguien que no conoce el prototipo).
+  //
+  // Arreglo (Kesta 14): un número FIJO (0.5) no tiene sentido para
+  // todo el mundo — según dónde esté tu cámara, TU postura buena real
+  // puede dar una proporción más alta que eso, y entonces cada cuadro
+  // se marcaba "implausible" para siempre (mismo síntoma que arriba).
+  // Ahora el techo es relativo a TU referencia (calibrada o genérica),
+  // con margen de sobra, para adaptarse a cada cámara/persona.
+  const HEAD_RATIO_PLAUSIBLE_MARGIN = 0.35;
   // Con calibración personal, "bueno" y "atención" se miden relativo a TU
   // propio número, no al genérico:
   const HEAD_MARGIN_ATTENTION = 0.02; // cuánto por debajo de tu calibración ya es "atención"
@@ -348,6 +362,14 @@
   let confirmedState = 'good'; // 'good' | 'attention' | 'bad' — el estado ya confirmado (con debounce)
   let pendingState = null; // candidato a nuevo estado, todavía "probándose"
   let pendingStreak = 0;
+  // Arreglo (Kesta 14): válvula de seguridad — un cuadro "no confiable"
+  // se descarta (ver computePostureMetrics), pero si se acumulan
+  // DEMASIADOS seguidos, algo anda mal con el filtro y es peor quedarse
+  // congelado para siempre que clasificar con datos imperfectos. Después
+  // de MAX_UNRELIABLE_FRAMES la IA deja de descartar y clasifica con lo
+  // que tenga, aunque no esté 100% segura.
+  let consecutiveUnreliableFrames = 0;
+  const MAX_UNRELIABLE_FRAMES = 20;
   let secondTickInterval = null;
   let webcamStream = null;
   let calibratedHeadRatio = parseFloat(safeGetItem(CALIBRATION_KEY));
@@ -451,6 +473,7 @@
     confirmedState = 'good';
     pendingState = null;
     pendingStreak = 0;
+    consecutiveUnreliableFrames = 0;
     badPostureSeconds = 0;
     secondsSinceLastAlert = 0;
     calibrating = false;
@@ -639,8 +662,14 @@
     // Cuadro no confiable (mano tapando cara/hombro, ángulo de cabeza
     // extremo): no lo uses para clasificar NI para calibrar — se
     // mantiene el último estado confirmado y se espera al siguiente
-    // cuadro bueno, en vez de "aprenderte" un dato malo.
-    if (!metrics.reliable) return;
+    // cuadro bueno, en vez de "aprenderte" un dato malo. PERO no para
+    // siempre: si se acumulan demasiados seguidos, se usa igual (ver
+    // MAX_UNRELIABLE_FRAMES) — nunca debe sentirse "congelado".
+    if (!metrics.reliable) {
+      consecutiveUnreliableFrames += 1;
+      if (consecutiveUnreliableFrames < MAX_UNRELIABLE_FRAMES) return;
+    }
+    consecutiveUnreliableFrames = 0;
 
     if (calibrating) calibrationSamples.push(metrics.headRatio);
 
@@ -677,7 +706,10 @@
     const shouldersVisible = (lSh.visibility || 0) > LANDMARK_VISIBILITY_MIN && (rSh.visibility || 0) > LANDMARK_VISIBILITY_MIN;
 
     const headRatio = shoulderWidth > 0 ? (shCenterY - nose.y) / shoulderWidth : 0;
-    const headRatioPlausible = headRatio <= HEAD_RATIO_PLAUSIBLE_MAX;
+    // Relativo a TU referencia (ver nota de Kesta 14 arriba) — no un
+    // número fijo igual para todas las cámaras/personas.
+    const headRatioCeiling = (calibratedHeadRatio !== null ? calibratedHeadRatio : DEFAULT_HEAD_GOOD) + HEAD_RATIO_PLAUSIBLE_MARGIN;
+    const headRatioPlausible = headRatio <= headRatioCeiling;
 
     return {
       shoulderTilt: tiltAngle(lSh, rSh),
