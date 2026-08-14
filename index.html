@@ -52,13 +52,21 @@
   <!-- Manchas de color difuminadas de fondo, puramente decorativas -->
   <div class="bg-glow"></div>
 
-  <!-- Fondos decorativos "vivos" (Kesta 12): partículas en 2D (js/effects.js)
-       y geometría 3D interactiva con Three.js (js/three-bg.js). Ambos son
-       puramente decorativos y quedan detrás de todo el contenido — si algo
-       falla al cargarlos (sin internet, sin WebGL, etc.) el resto de
-       ErgoAI sigue funcionando exactamente igual. -->
+  <!-- Fondo decorativo "vivo" (Kesta 12): partículas en 2D (js/effects.js).
+       Puramente decorativo y queda detrás de todo el contenido — si algo
+       falla al cargarlo (sin internet, etc.) el resto de ErgoAI sigue
+       funcionando exactamente igual.
+
+       Nota (Kesta 16): el fondo 3D con Three.js que hubo aquí (canvas
+       #threeCanvas, js/three-bg.js) se QUITÓ por completo. Aunque en
+       Kesta 15 se corrigió una condición de carrera que lo hacía
+       encenderse sin saber que la cámara ya estaba en uso, en la
+       computadora del colegio (con gráficos más modestos, y sin
+       posibilidad de probar ahí de forma remota) seguía congelando el
+       sistema. Para una demo de feria, confiable > bonito — se prefirió
+       quitarlo entero a seguir parchando un caso que no se puede
+       verificar de antemano en el hardware real. -->
   <canvas id="particleCanvas" class="particle-field" aria-hidden="true"></canvas>
-  <canvas id="threeCanvas" class="three-field" aria-hidden="true"></canvas>
 
   <div class="app" id="app">
 
@@ -146,6 +154,12 @@
         <button type="button" class="btn-connect" id="hwConnectBtn">🔌 Conectar placa (buzzer)</button>
       </div>
       <p class="camera-setup-error" id="hwUnsupportedMsg" hidden>Tu navegador no soporta esta función todavía (Web Serial). Para la demo de la feria, ábrela en Chrome o Edge de computadora — en otros dispositivos ErgoAI sigue funcionando completo, solo sin el buzzer.</p>
+      <!-- Errores de conexión (puerto vacío, driver faltante, etc.) — aparte
+           de hwUnsupportedMsg, y aparte de cameraError (que es de la cámara,
+           no de la placa): antes se reusaba el de la cámara por error, y el
+           aviso terminaba apareciendo lejos de donde alguien mira cuando le
+           da clic a "Conectar placa". -->
+      <p class="camera-setup-error" id="hwError" hidden></p>
     </section>
 
     <!-- Fuente real del video: se mantiene oculta, solo alimenta a la IA.
@@ -253,7 +267,7 @@
 
     <footer class="footer reveal-on-scroll">
       <p>ErgoAI © 2026 — Proyecto Kesta GHS</p>
-      <p class="version-tag">Kesta 15 · ya no se congela al activar la cámara</p>
+      <p class="version-tag">Kesta 16 · sin fondo 3D, más confiable para la feria</p>
     </footer>
   </div>
 
@@ -296,21 +310,25 @@
        propio bucle, sobre la única cámara que ya conectamos. -->
   <script src="app.js"></script>
 
-  <!-- ======================= EFECTOS VISUALES (Kesta 12, aligerado en Kesta 13) =======================
-       Motion, GSAP, ScrollTrigger, Lenis y Three.js (fondo 3D, partículas,
-       scroll suave, animaciones de entrada) YA NO se cargan aquí directo.
-       Todo lo decorativo es SOLO decorativo — a propósito en archivos
-       aparte de app.js, para no arriesgar la lógica de cámara/IA/placa.
+  <!-- ======================= EFECTOS VISUALES (Kesta 12, aligerado en Kesta 13, sin fondo 3D desde Kesta 16) =======================
+       Motion, GSAP, ScrollTrigger, Lenis (partículas, scroll suave,
+       animaciones de entrada) YA NO se cargan aquí directo. Todo lo
+       decorativo es SOLO decorativo — a propósito en archivos aparte de
+       app.js, para no arriesgar la lógica de cámara/IA/placa.
 
-       Arreglo (Kesta 13): cargar 5 librerías más de entrada (~900 KB)
-       antes de que la página se sintiera lista era justo la causa del
-       "delay y lag" reportado, sobre todo grave con mal internet el día
-       de la feria. Ahora js/loader.js las pide DESPUÉS de que la página
-       ya cargó por completo, y las salta enteras en conexiones lentas /
+       Arreglo (Kesta 13): cargar varias librerías de entrada antes de
+       que la página se sintiera lista era justo la causa del "delay y
+       lag" reportado, sobre todo grave con mal internet el día de la
+       feria. Ahora js/loader.js las pide DESPUÉS de que la página ya
+       cargó por completo, y las salta enteras en conexiones lentas /
        modo ahorro de datos — la cámara, la IA y la placa nunca esperan a
        esto. Las librerías mismas ya no vienen de un CDN externo: están
        autohospedadas en vendor/ (ver README), para no depender de
-       internet de terceros. -->
+       internet de terceros.
+
+       Nota (Kesta 16): Three.js y el fondo 3D interactivo se quitaron
+       por completo — ver la nota junto a donde estaba su <canvas>, más
+       arriba en este archivo. -->
   <script src="js/loader.js"></script>
 </body>
 </html>

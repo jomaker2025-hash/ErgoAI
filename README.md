@@ -61,7 +61,6 @@ IdeaBoard) — **requerida para la demo de la feria**: luz verde = buena postura
 | Estilos | [Tailwind CSS v4](https://tailwindcss.com) (compilado con su CLI, ver abajo) para lo nuevo + `style.css` a mano para el diseño ya afinado de antes |
 | Animaciones de scroll | [Motion](https://motion.dev) (sucesor vanilla de Framer Motion) para animar la entrada de las secciones; [GSAP](https://gsap.com) + ScrollTrigger para animaciones atadas al progreso del scroll |
 | Scroll suave | [Lenis](https://lenis.darkroom.engineering) (Studio Freight) |
-| Fondo 3D interactivo | [Three.js](https://threejs.org) puro (no React Three Fiber: esa es solo la envoltura de React, Three.js "de a pie" funciona igual sin React) |
 | Detección de postura (web) | [MediaPipe Pose](https://developers.google.com/mediapipe) (corre en el navegador, con un bucle propio de envío de cuadros — no la utilidad "Camera" de MediaPipe, que abre su propio acceso a la cámara por dentro y causaba conflictos) |
 | Detección de postura (escritorio) | MediaPipe Pose + OpenCV, en Python (`desktop/`) |
 | Cámara | La del propio dispositivo, vía `getUserMedia` (web) u OpenCV (escritorio) |
@@ -69,14 +68,20 @@ IdeaBoard) — **requerida para la demo de la feria**: luz verde = buena postura
 | Guardado de progreso | `localStorage` del navegador (sin servidor/base de datos) |
 | Hosting | GitHub Pages |
 
-> **¿Por qué no shadcn/ui ni React Three Fiber?** Las dos son herramientas
-> exclusivas de React (shadcn genera componentes `.tsx`; React Three Fiber
-> es la envoltura de React para Three.js) — no existen para HTML/CSS/JS
-> puro. En vez de reescribir todo ErgoAI en React (con el riesgo de tener
-> que volver a probar a fondo la cámara/IA/placa justo antes de la feria),
-> se recreó el mismo lenguaje visual a mano con Tailwind (`.ui-btn`,
-> `.ui-card`, `.ui-badge` en `styles/tailwind.css`) y el mismo fondo 3D
-> con Three.js puro (`js/three-bg.js`).
+> **¿Por qué no shadcn/ui?** Es una herramienta exclusiva de React (genera
+> componentes `.tsx`) — no existe para HTML/CSS/JS puro. En vez de
+> reescribir todo ErgoAI en React (con el riesgo de tener que volver a
+> probar a fondo la cámara/IA/placa justo antes de la feria), se recreó el
+> mismo lenguaje visual a mano con Tailwind (`.ui-btn`, `.ui-card`,
+> `.ui-badge` en `styles/tailwind.css`).
+>
+> **¿Y el fondo 3D con Three.js/React Three Fiber que hubo?** Se probó
+> (Kesta 12) con Three.js puro (sin necesidad de React) y se quitó por
+> completo en Kesta 16: aunque en Kesta 15 se corrigió una condición de
+> carrera que lo hacía encender sin saber que la cámara ya estaba en uso,
+> en la computadora del colegio (gráficos más modestos, imposible de
+> probar de forma remota) seguía congelando el sistema al activar la
+> cámara. Para una demo de feria, confiable importa más que bonito.
 
 ## Estructura del proyecto
 
@@ -90,9 +95,8 @@ ErgoAI/
 ├── app.js                     # Lógica: IA, cámara, historial, notificaciones, buzzer
 ├── js/
 │   ├── loader.js                  # Carga lo decorativo DESPUÉS de lo crítico (ver "Rendimiento")
-│   ├── effects.js                 # Lenis, GSAP/ScrollTrigger, Motion (entrada al hacer scroll), partículas
-│   └── three-bg.js                # Fondo 3D interactivo (Three.js), reacciona al cursor
-├── vendor/                    # Motion/GSAP/ScrollTrigger/Lenis/Three.js autohospedados (ver "Rendimiento")
+│   └── effects.js                 # Lenis, GSAP/ScrollTrigger, Motion (entrada al hacer scroll), partículas
+├── vendor/                    # Motion/GSAP/ScrollTrigger/Lenis autohospedados (ver "Rendimiento")
 ├── package.json                # Solo para compilar Tailwind — el sitio en sí no necesita Node
 ├── manifest.json              # Para poder "instalar" la página como app
 ├── assets/                    # Logo e íconos
@@ -146,34 +150,32 @@ todo grave con mal internet. Kesta 13 lo reorganizó así:
   grandes para guardarlos en el repositorio.
 - **Lo decorativo se carga DESPUÉS de que la página ya esté lista**
   (`js/loader.js`, después del evento `load`) — la cámara, la IA y la
-  placa nunca esperan a Motion/GSAP/Three.js.
+  placa nunca esperan a Motion/GSAP/Lenis.
 - **En conexiones lentas o con "modo ahorro de datos" activado**
   (`navigator.connection`), lo decorativo se **salta por completo** —
   cero bytes de más. Las secciones se muestran de una vez, sin animación
   de entrada, en vez de arriesgarse a quedar invisibles esperando una
   librería que nunca llegó a cargar.
-- **El fondo 3D y las partículas se PAUSAN mientras la cámara está
-  conectada** (evento `ergoai:camera`, que manda `app.js`) — mientras
-  estás usando la función que de verdad importa, nada decorativo le
-  compite presupuesto de CPU/GPU a MediaPipe.
-- Menos partículas, menos puntos en el fondo 3D, tope de resolución más
-  bajo, y limitado a ~24 fps (no necesita los 60 completos).
+- **Las partículas se PAUSAN mientras la cámara está conectada** (evento
+  `ergoai:camera`, que manda `app.js`) — mientras estás usando la
+  función que de verdad importa, nada decorativo le compite presupuesto
+  de CPU a MediaPipe.
+- Menos partículas por pantalla, tope de resolución más bajo.
 
-**Arreglo (Kesta 15) — "se congela la computadora al activar la
-cámara":** lo decorativo se carga DESPUÉS de la página a propósito (ver
-arriba), pero eso significaba que si activabas la cámara justo mientras
-`js/three-bg.js` seguía cargando, el aviso de "la cámara ya está
-prendida" se podía perder — y el fondo 3D encendía un contexto WebGL
-entero sin saber que la IA ya estaba usando la cámara/GPU. En
-computadoras con gráficos integrados modestos, dos cosas así peleando
-por el mismo recurso puede congelar todo el sistema, no solo la
-pestaña. Ahora `js/three-bg.js` y `js/effects.js` revisan el estado
-real de la cámara (`window.ErgoAI.cameraConnected`) antes de construir
-nada, lo vuelven a revisar justo antes de crear el contexto WebGL (por
-si la cámara se conectó mientras se descargaba la librería), y esperan
-un margen extra si acabas de cargar la página — nunca encienden el
-fondo 3D mientras la cámara está en uso, sin importar qué tan rápido la
-actives.
+**Kesta 15 y 16 — "se congela la computadora al activar la cámara":**
+había también un fondo 3D interactivo con Three.js. Como todo lo
+decorativo se carga DESPUÉS de la página (ver arriba), si activabas la
+cámara justo mientras esa librería seguía cargando, el aviso de "la
+cámara ya está prendida" se podía perder — y el fondo 3D encendía un
+contexto WebGL entero sin saber que la IA ya estaba usando la
+cámara/GPU. En computadoras con gráficos integrados modestos (como la
+del colegio), dos cosas así peleando por el mismo recurso puede
+congelar todo el sistema, no solo la pestaña. Kesta 15 arregló la
+condición de carrera que lo causaba, pero como seguía pasando en la
+computadora del colegio (imposible de probar de forma remota), **Kesta
+16 quitó el fondo 3D por completo** — para una demo de feria, confiable
+importa más que bonito. Las partículas (canvas 2D, mucho más livianas,
+sin WebGL) se quedaron.
 
 Si aun así notas lag en una computadora en particular, lo más rápido es
 abrir la consola del navegador (F12) — `js/loader.js` avisa ahí mismo si

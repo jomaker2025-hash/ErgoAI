@@ -1,12 +1,14 @@
 /* ============================================================
-   ErgoAI — Cargador de lo decorativo (Kesta 13)
+   ErgoAI — Cargador de lo decorativo (Kesta 13, sin fondo 3D desde Kesta 16)
    ------------------------------------------------------------
    Por qué existe este archivo: en Kesta 12 agregamos varias
    librerías (Motion, GSAP, ScrollTrigger, Lenis, Three.js) para
    efectos visuales. Kesta 13 llegó porque en la práctica eso metía
    "delay y lag" — sobre todo grave si el día de la feria el
    internet es malo, porque el navegador tenía que bajar TODO eso
-   antes de que la página se sintiera lista.
+   antes de que la página se sintiera lista. Kesta 16 quitó Three.js
+   (el fondo 3D) del todo — seguía congelando la computadora del
+   colegio al activar la cámara.
 
    Este archivo cambia el ORDEN: lo crítico (MediaPipe + app.js, ya
    declarados arriba en index.html) se sigue cargando primero, como
@@ -82,10 +84,12 @@
       revealEverythingNow();
     });
 
-    // El fondo 3D es aparte (más pesado, y su propio módulo ya se pausa
-    // solo mientras la cámara está conectada) — que uno falle no debe
-    // tumbar al otro.
-    loadScript('js/three-bg.js', true).catch((err) => console.warn('ErgoAI:', err.message));
+    // Nota (Kesta 16): aquí se cargaba también js/three-bg.js (fondo 3D
+    // con Three.js). Se quitó por completo — en la computadora del
+    // colegio (gráficos más modestos) seguía congelando el sistema al
+    // activar la cámara, incluso después de arreglar en Kesta 15 la
+    // condición de carrera que lo encendía sin saber que la cámara ya
+    // estaba en uso. Para una demo de feria, confiable > bonito.
   }
 
   if (document.readyState === 'complete') {

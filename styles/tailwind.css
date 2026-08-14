@@ -156,13 +156,12 @@
     @apply fixed inset-0 -z-10 pointer-events-none;
   }
 
-  /* ---------- Fondo 3D interactivo ----------
-     Contenedor para el <canvas> de Three.js. También fijo detrás del
-     contenido; pointer-events desactivado para no robarle clics a la UI
-     (la interacción es solo "reacciona al mover el mouse", no clics). */
-  .three-field {
-    @apply fixed inset-0 -z-20 pointer-events-none opacity-70;
-  }
+  /* Nota (Kesta 16): aquí había un .three-field para el fondo 3D
+     interactivo con Three.js — se quitó por completo. En la
+     computadora del colegio (gráficos más modestos) seguía congelando
+     el sistema al activar la cámara, incluso después de arreglar en
+     Kesta 15 la condición de carrera que lo encendía sin saber que la
+     cámara ya estaba en uso. Para una demo de feria, confiable > bonito. */
 
   /* Utilidad para las secciones que Motion anima al entrar en pantalla —
      estado inicial (antes de que Motion las anime a su posición final),

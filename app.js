@@ -484,7 +484,7 @@
 
     sendHwCommand('OFF');
 
-    // Kesta 13: avisa a los efectos decorativos (fondo 3D, partículas)
+    // Kesta 13: avisa a los efectos decorativos (partículas)
     // que ya pueden volver a dibujar — mientras la cámara está conectada
     // se quedan pausados, para no competirle presupuesto de CPU/GPU a la
     // detección de postura real. Un CustomEvent (no una variable
@@ -493,15 +493,16 @@
     // escucha nadie.
     //
     // Arreglo (Kesta 15): además del evento, se guarda el estado en
-    // window.ErgoAI.cameraConnected. Kesta 13 cargaba effects.js/
-    // three-bg.js DESPUÉS de activar la cámara (a propósito, para no
-    // competir por internet lento) — pero eso significaba que si
-    // conectabas la cámara ANTES de que esos archivos terminaran de
-    // cargar, el evento se perdía: cuando por fin arrancaban, no tenían
-    // forma de saber que la cámara ya estaba prendida, y encendían el
-    // fondo 3D de todos modos, compitiendo por GPU justo con la IA —
-    // eso era lo que congelaba la computadora. Ahora, revisan esta
-    // bandera al arrancar, no solo el evento.
+    // window.ErgoAI.cameraConnected. Kesta 13 carga effects.js DESPUÉS
+    // de activar la cámara (a propósito, para no competir por internet
+    // lento) — pero eso significaba que si conectabas la cámara ANTES
+    // de que ese archivo terminara de cargar, el evento se perdía:
+    // cuando por fin arrancaba, no tenía forma de saber que la cámara
+    // ya estaba prendida. Ahora revisa esta bandera al arrancar, no
+    // solo el evento. (Esto fue crítico mientras existió el fondo 3D
+    // con Three.js — quitado en Kesta 16 por seguir congelando la
+    // computadora del colegio — pero se deja el mismo mecanismo para
+    // las partículas, más livianas.)
     window.ErgoAI = window.ErgoAI || {};
     window.ErgoAI.cameraConnected = false;
     window.dispatchEvent(new CustomEvent('ergoai:camera', { detail: { connected: false } }));
@@ -1088,6 +1089,20 @@
   const hwPill = document.getElementById('hwPill');
   const hwPillText = hwPill ? hwPill.querySelector('.pill-text') : null;
   const hwUnsupportedMsg = document.getElementById('hwUnsupportedMsg');
+  const hwError = document.getElementById('hwError');
+
+  // Arreglo: los errores de LA PLACA (puerto vacío, driver faltante,
+  // etc.) usaban por error showCameraError() — eso los mostraba en la
+  // sección de la cámara, lejos de "Conectar placa", así que fácil
+  // pasaban desapercibidos. Ahora tienen su propio aviso, junto al botón.
+  function showHwError(msg) {
+    if (!hwError) return;
+    hwError.innerHTML = msg;
+    hwError.hidden = false;
+  }
+  function hideHwError() {
+    if (hwError) hwError.hidden = true;
+  }
 
   const HW_SUPPORTED = 'serial' in navigator;
 
@@ -1143,6 +1158,7 @@
 
   async function connectHardware() {
     if (!HW_SUPPORTED) return;
+    hideHwError();
     try {
       hwPort = await navigator.serial.requestPort();
       await hwPort.open({ baudRate: 115200 });
@@ -1160,12 +1176,20 @@
         // Pasa si el usuario cierra el selector de puerto sin elegir nada —
         // O si la lista aparece VACÍA porque Windows todavía no reconoce la
         // placa (falta el driver "CH340", muy común en una computadora
-        // donde nunca se ha conectado una placa como esta). Como no
-        // podemos distinguir "cancelaste a propósito" de "no había nada
-        // para elegir", damos un aviso breve por si acaso.
-        showCameraError('Si no viste tu placa en la lista, revisa que esté conectada por USB y que tenga instalado el driver "CH340" (búscalo así en internet — es gratis y toma 1 minuto instalarlo).');
+        // donde nunca se ha conectado una placa como esta — por ejemplo,
+        // "funciona en mi compu pero no en la del colegio" es justo este
+        // caso). Como no podemos distinguir "cancelaste a propósito" de
+        // "no había nada para elegir", damos un aviso completo por si
+        // acaso, con el link directo al driver (no "búscalo en internet",
+        // para no mandar a nadie a bajar un instalador de un sitio raro).
+        showHwError(
+          'Si la lista de puertos salió vacía (o no viste tu placa ahí), esta computadora probablemente nunca instaló el driver "CH340" — pasa la primera vez que se conecta una placa así en una computadora nueva. ' +
+          '<a href="https://www.wch-ic.com/downloads/CH341SER_ZIP.html" target="_blank" rel="noopener noreferrer">Descarga el driver oficial aquí</a>, instálalo, ' +
+          'DESCONECTA Y VUELVE A CONECTAR el cable USB de la placa, y dale clic a "Conectar placa" otra vez. ' +
+          '¿Quieres confirmar? Abre el Administrador de dispositivos de Windows (búscalo en el menú Inicio) — si ves algo con un triángulo amarillo bajo "Otros dispositivos", es justo esto.'
+        );
       } else {
-        showCameraError('No se pudo conectar con la placa. Revisa que esté conectada por USB y que ningún otro programa (Mu, monitor serial, Arduino IDE…) tenga su puerto abierto.');
+        showHwError('No se pudo conectar con la placa. Revisa que esté conectada por USB y que ningún otro programa (Mu, monitor serial, Arduino IDE…) tenga su puerto abierto.');
       }
     }
   }
