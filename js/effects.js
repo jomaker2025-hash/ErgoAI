@@ -152,7 +152,13 @@
       // entre dibujar ~2 millones de píxeles por cuadro o el doble.
       let dpr = Math.min(window.devicePixelRatio || 1, 1.5);
       let rafId = null;
-      let cameraActive = false;
+      // Arreglo (Kesta 15): este archivo se carga DESPUÉS de la página
+      // (a propósito, ver js/loader.js) — si activaste la cámara ANTES
+      // de que esto terminara de cargar, el aviso ya había pasado y
+      // nadie lo alcanzó a escuchar, así que las partículas arrancaban
+      // "a ciegas" sin saber que la cámara ya estaba prendida. Se revisa
+      // la bandera que deja app.js en vez de asumir "cámara apagada".
+      let cameraActive = !!(window.ErgoAI && window.ErgoAI.cameraConnected);
 
       function resize() {
         width = window.innerWidth;
@@ -205,7 +211,7 @@
 
       resize();
       window.addEventListener('resize', resize);
-      rafId = requestAnimationFrame(tick);
+      if (!cameraActive) rafId = requestAnimationFrame(tick);
 
       function pause() {
         if (rafId) cancelAnimationFrame(rafId);

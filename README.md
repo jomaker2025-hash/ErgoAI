@@ -159,6 +159,22 @@ todo grave con mal internet. Kesta 13 lo reorganizó así:
 - Menos partículas, menos puntos en el fondo 3D, tope de resolución más
   bajo, y limitado a ~24 fps (no necesita los 60 completos).
 
+**Arreglo (Kesta 15) — "se congela la computadora al activar la
+cámara":** lo decorativo se carga DESPUÉS de la página a propósito (ver
+arriba), pero eso significaba que si activabas la cámara justo mientras
+`js/three-bg.js` seguía cargando, el aviso de "la cámara ya está
+prendida" se podía perder — y el fondo 3D encendía un contexto WebGL
+entero sin saber que la IA ya estaba usando la cámara/GPU. En
+computadoras con gráficos integrados modestos, dos cosas así peleando
+por el mismo recurso puede congelar todo el sistema, no solo la
+pestaña. Ahora `js/three-bg.js` y `js/effects.js` revisan el estado
+real de la cámara (`window.ErgoAI.cameraConnected`) antes de construir
+nada, lo vuelven a revisar justo antes de crear el contexto WebGL (por
+si la cámara se conectó mientras se descargaba la librería), y esperan
+un margen extra si acabas de cargar la página — nunca encienden el
+fondo 3D mientras la cámara está en uso, sin importar qué tan rápido la
+actives.
+
 Si aun así notas lag en una computadora en particular, lo más rápido es
 abrir la consola del navegador (F12) — `js/loader.js` avisa ahí mismo si
 detectó una conexión lenta y decidió saltarse los efectos.

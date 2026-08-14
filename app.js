@@ -491,6 +491,19 @@
     // compartida) para que app.js no tenga que saber que esos efectos
     // existen — si ninguno está cargado, este evento simplemente no lo
     // escucha nadie.
+    //
+    // Arreglo (Kesta 15): además del evento, se guarda el estado en
+    // window.ErgoAI.cameraConnected. Kesta 13 cargaba effects.js/
+    // three-bg.js DESPUÉS de activar la cámara (a propósito, para no
+    // competir por internet lento) — pero eso significaba que si
+    // conectabas la cámara ANTES de que esos archivos terminaran de
+    // cargar, el evento se perdía: cuando por fin arrancaban, no tenían
+    // forma de saber que la cámara ya estaba prendida, y encendían el
+    // fondo 3D de todos modos, compitiendo por GPU justo con la IA —
+    // eso era lo que congelaba la computadora. Ahora, revisan esta
+    // bandera al arrancar, no solo el evento.
+    window.ErgoAI = window.ErgoAI || {};
+    window.ErgoAI.cameraConnected = false;
     window.dispatchEvent(new CustomEvent('ergoai:camera', { detail: { connected: false } }));
   }
 
@@ -538,8 +551,11 @@
     // de una vez (en vez de esperar hasta 1 segundo al primer tick)
     syncHardwareState(confirmedState);
 
-    // Kesta 13: avisa a los efectos decorativos que se pausen mientras
-    // la cámara está activa (ver la nota completa en disconnectCamera).
+    // Kesta 13/15: avisa a los efectos decorativos que se pausen mientras
+    // la cámara está activa (ver la nota completa en disconnectCamera) —
+    // bandera Y evento, para que también lo sepan si arrancan DESPUÉS.
+    window.ErgoAI = window.ErgoAI || {};
+    window.ErgoAI.cameraConnected = true;
     window.dispatchEvent(new CustomEvent('ergoai:camera', { detail: { connected: true } }));
   }
 
