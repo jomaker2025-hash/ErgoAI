@@ -176,6 +176,15 @@
         <div class="aceternity-border-inner">
           <!-- Tarjeta grande: estado en vivo de la postura -->
           <section class="status-card" id="statusCard">
+            <!-- Resplandor del estado (verde/ámbar/rojo): 3 capas ya
+                 pintadas, solo se cruza su OPACIDAD al cambiar de
+                 estado (nunca su color/forma) — así la animación es
+                 puro "transform/opacity", sin repintar toda la tarjeta
+                 cada vez (ver styles/tailwind.css o el comentario en
+                 style.css, sección "Tarjeta grande de estado"). -->
+            <span class="status-glow status-glow-good" aria-hidden="true"></span>
+            <span class="status-glow status-glow-attention" aria-hidden="true"></span>
+            <span class="status-glow status-glow-bad" aria-hidden="true"></span>
             <span class="live-badge"><span class="live-dot"></span> EN VIVO</span>
             <div class="status-icon">🧍</div>
             <p class="status-label">Estado actual</p>
@@ -267,7 +276,7 @@
 
     <footer class="footer reveal-on-scroll">
       <p>ErgoAI © 2026 — Proyecto Kesta GHS</p>
-      <p class="version-tag">Kesta 16 · sin fondo 3D, más confiable para la feria</p>
+      <p class="version-tag">Kesta 17 · optimización profunda de rendimiento</p>
     </footer>
   </div>
 

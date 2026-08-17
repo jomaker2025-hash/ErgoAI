@@ -177,6 +177,51 @@ computadora del colegio (imposible de probar de forma remota), **Kesta
 importa más que bonito. Las partículas (canvas 2D, mucho más livianas,
 sin WebGL) se quedaron.
 
+**Kesta 17 — optimización a fondo (el congelamiento seguía pasando
+incluso SIN el fondo 3D):** eso confirmó que MediaPipe (la IA de
+postura) también usa la tarjeta gráfica por dentro — no hacía falta
+nuestro propio fondo 3D para saturarla en una computadora modesta. Dos
+arreglos directos a eso:
+- `modelComplexity` de MediaPipe bajado de 1 ("Full") a 0 ("Lite") —
+  más liviano, tanto en CPU como en GPU; nuestras 3 señales (hombros,
+  cadera, cabeza) son puntos grandes y fáciles de rastrear, así que no
+  hace falta el modelo completo.
+- La cámara ahora se pide con una resolución máxima razonable (480×360
+  en vez de sin límite) — algunas cámaras le entregaban a MediaPipe
+  cuadros de 720p o más sin necesidad.
+
+Además, una auditoría completa contra una lista de buenas prácticas de
+rendimiento web encontró varios puntos reales que sí aplicaban a este
+proyecto (no todos — el documento mencionaba, por ejemplo, un "medidor
+circular" que ErgoAI nunca tuvo):
+- El historial de 7 días y la sesión en vivo se **redibujaban enteros**
+  cada 1-2 segundos mientras había cámara conectada, aunque casi nada
+  hubiera cambiado — el mismo tipo de bug que causó el "tembleque" de
+  la racha en Kesta 10, solo que nadie se había dado cuenta de que
+  seguía pasando en otros módulos. Ahora solo se actualiza lo que de
+  verdad cambió.
+- El resplandor de la tarjeta de estado (verde/ámbar/rojo) y las barras
+  del historial animaban `box-shadow`/`height` — propiedades que
+  obligan al navegador a repintar en vez de usar la tarjeta gráfica.
+  Ahora usan `opacity`/`transform`, que sí acelera la GPU.
+- El fondo animado de manchas de color y el borde giratorio de la
+  tarjeta principal animaban `background-position` y una variable CSS
+  usada dentro de un degradado — ambos casos obligaban a repintar la
+  PANTALLA COMPLETA en bucle infinito, para siempre, mientras la página
+  estuviera abierta. Ahora animan `transform` en una capa aparte.
+- `contain: layout paint style` en los módulos que se actualizan solo
+  (tarjeta de estado, sesión en vivo, historial) — le dice al navegador
+  que esos cambios no afectan al resto de la página.
+- Se quitó una función (`animateValue`) que ya no la llamaba nadie
+  desde que se quitó la racha en Kesta 10.
+
+Lo único que se dejó pendiente a propósito: mover MediaPipe a un Web
+Worker (hilo aparte). Es la optimización más profunda posible, pero
+también la más riesgosa — reescribiría por completo cómo se comunican
+la cámara, la IA y la placa, justo la parte más importante del
+proyecto, días antes de la feria. Se puede retomar después de la
+competencia si sigue haciendo falta.
+
 Si aun así notas lag en una computadora en particular, lo más rápido es
 abrir la consola del navegador (F12) — `js/loader.js` avisa ahí mismo si
 detectó una conexión lenta y decidió saltarse los efectos.

@@ -157,16 +157,9 @@
     el.classList.add('icon-pop');
   }
 
-  function animateValue(el, end, duration, suffix = '') {
-    const startTime = performance.now();
-    function tick(now) {
-      const progress = Math.min((now - startTime) / duration, 1);
-      const eased = 1 - Math.pow(1 - progress, 3); // ease-out cúbico
-      el.textContent = Math.round(end * eased) + suffix;
-      if (progress < 1) requestAnimationFrame(tick);
-    }
-    requestAnimationFrame(tick);
-  }
+  // (Kesta 17: se quitó animateValue() de aquí — era del módulo "Tu
+  // progreso"/racha, eliminado en Kesta 10; la función se quedó
+  // huérfana, sin nadie que la llamara, desde entonces.)
 
   // ============================================================
   // 1. PANTALLA DE CARGA
@@ -414,7 +407,14 @@
     webcamConnectBtn.textContent = 'Pidiendo permiso…';
     try {
       webcamStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user' },
+        // Arreglo (Kesta 17, rendimiento): sin esto, algunas cámaras le
+        // entregan a MediaPipe cuadros de 720p (o más) sin necesidad —
+        // el modelo de postura no necesita tanto detalle, y procesar
+        // cuadros más grandes cuesta más CPU en cada uno, para siempre
+        // mientras la cámara esté conectada. "ideal" (no "exact"/"min")
+        // para que la cámara elija lo más parecido que pueda, sin fallar
+        // en cámaras que no soportan justo esta medida.
+        video: { facingMode: 'user', width: { ideal: 480 }, height: { ideal: 360 } },
         audio: false,
       });
       webcamVideo.srcObject = webcamStream;
@@ -570,7 +570,17 @@
       locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/${file}`,
     });
     pose.setOptions({
-      modelComplexity: 1,
+      // Arreglo (Kesta 17): modelComplexity 1 ("Full") es más preciso,
+      // pero también más pesado — MediaPipe usa la tarjeta gráfica por
+      // dentro para esto, y en una tarjeta gráfica modesta (como la de
+      // la compu del colegio) eso puede congelar la computadora al
+      // activar la cámara, con o sin nuestro propio fondo 3D (que ya se
+      // quitó en Kesta 16). 0 ("Lite") es más liviano y sigue siendo
+      // suficiente para las 3 señales que usamos (hombros, cadera,
+      // cabeza son puntos grandes y fáciles de rastrear, no necesitan
+      // la precisión extra del modelo completo). Confiable > preciso
+      // al milímetro para la demo de la feria.
+      modelComplexity: 0,
       smoothLandmarks: true,
       minDetectionConfidence: 0.5,
       minTrackingConfidence: 0.5,
@@ -971,11 +981,37 @@
     return days;
   }
 
+  // Arreglo (Kesta 17): esto se llama UNA VEZ POR SEGUNDO mientras la
+  // cámara está conectada (viene de recordSample). Antes reconstruía las
+  // 7 barras Y las 7 filas de la tabla desde cero cada vez — con
+  // .bar-fill { transition: height ... }, eso significa que el navegador
+  // volvía a "animar" la barra de hoy CADA SEGUNDO (elemento nuevo, sin
+  // altura previa, izq. transición desde 0) — el mismo tipo de "tembleque"
+  // que ya habíamos identificado y quitado del módulo de racha en Kesta
+  // 10, solo que aquí seguía sin que nos diéramos cuenta. La solución es
+  // la misma: no volver a dibujar si los datos que se ven en pantalla no
+  // cambiaron de verdad.
+  let lastHistorySignature = null;
+
   function renderHistoryChart() {
     const dayNames = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
     const shortNames = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
     const days = last7Days();
     const today = todayKey();
+
+    // "Firma" barata de lo que se vería en pantalla (7 días, cada uno
+    // como "clave:porcentaje") — si es idéntica a la última vez, los
+    // datos visibles no cambiaron (lo más común: pasó un segundo pero
+    // el % redondeado de hoy sigue igual) y no hay nada que redibujar.
+    const signature = days.map((d) => {
+      const key = todayKey(d);
+      const day = history[key];
+      const hasData = !!day && day.totalSeconds > 0;
+      const percent = hasData ? Math.round((day.goodSeconds / day.totalSeconds) * 100) : -1;
+      return `${key}:${percent}`;
+    }).join('|');
+    if (signature === lastHistorySignature) return;
+    lastHistorySignature = signature;
 
     barChart.innerHTML = '';
     historyTableBody.innerHTML = '';
@@ -1002,7 +1038,11 @@
       track.className = 'bar-track';
       const fill = document.createElement('div');
       fill.className = 'bar-fill';
-      fill.style.height = hasData ? `${Math.max(percent, 3)}%` : '0%';
+      // Arreglo (Kesta 17, rendimiento): antes se ponía fill.style.height
+      // (una propiedad de layout); ahora es una variable CSS que .bar-fill
+      // usa para su transform: scaleY(...) — ver style.css. Misma barra
+      // "creciendo", pero por transform en vez de layout.
+      fill.style.setProperty('--bar-percent', hasData ? Math.max(percent, 3) / 100 : 0);
       track.appendChild(fill);
 
       const labelEl = document.createElement('span');
@@ -1050,24 +1090,63 @@
 
   const SESSION_STATE_LABEL = { good: 'Buena postura', attention: 'Postura dudosa', bad: 'Mala postura' };
 
+  // Arreglo (Kesta 17): antes esto destruía y volvía a crear TODAS las
+  // barritas de la sesión (hasta 90) cada vez que se llamaba — aunque
+  // solo hubiera cambiado UNA (la más nueva). sessionSamples es una
+  // "ventana deslizante" (se agrega al final, se quita del principio
+  // cuando llega al tope) — así que el DOM puede actualizarse igual:
+  // se agrega SOLO la barrita nueva, y se quita SOLO la más vieja si
+  // hace falta. Los textos de "hace Ns" sí cambian en todas cada vez
+  // (todo se corrió 2s), pero actualizar un atributo de texto en
+  // elementos que YA EXISTEN es muchísimo más barato que destruir y
+  // volver a crear el elemento entero — que es lo que de verdad cuesta.
   function renderSessionStrip() {
-    sessionStrip.innerHTML = '';
     if (sessionSamples.length === 0) {
+      sessionStrip.innerHTML = '';
       const empty = document.createElement('p');
       empty.className = 'session-empty';
       empty.textContent = 'Todavía no hay datos de esta sesión — dale un par de segundos.';
       sessionStrip.appendChild(empty);
       return;
     }
-    sessionSamples.forEach((state, i) => {
-      const tick = document.createElement('div');
-      tick.className = `session-tick ${state}`;
-      const secondsAgo = (sessionSamples.length - 1 - i) * SESSION_TICK_SECONDS;
-      tick.dataset.tooltip = secondsAgo === 0
+    // Si el primer hijo no es una barrita (ej. veníamos del mensaje
+    // "todavía no hay datos", o se acaba de reconectar la cámara),
+    // reconstruye todo una vez — a partir de ahí, siempre incremental.
+    const isFreshStart = sessionStrip.children.length === 0 || !sessionStrip.firstElementChild.classList.contains('session-tick');
+    if (isFreshStart) {
+      sessionStrip.innerHTML = '';
+      sessionSamples.forEach((state) => sessionStrip.appendChild(makeSessionTick(state)));
+    } else {
+      // Se agregó una muestra nueva al final; si ya estábamos en el
+      // tope, recordSessionPoint ya quitó la más vieja de sessionSamples
+      // — se refleja quitando también su barrita del DOM.
+      sessionStrip.appendChild(makeSessionTick(sessionSamples[sessionSamples.length - 1]));
+      while (sessionStrip.children.length > sessionSamples.length) {
+        sessionStrip.removeChild(sessionStrip.firstElementChild);
+      }
+    }
+    updateSessionTickTooltips();
+  }
+
+  function makeSessionTick(state) {
+    const tick = document.createElement('div');
+    tick.className = `session-tick ${state}`;
+    return tick;
+  }
+
+  // Los tooltips ("hace Ns") de TODAS las barritas se corren en 1, así
+  // que sí hay que tocarlas todas — pero actualizar un atributo es
+  // muchísimo más barato que destruir y crear el elemento entero.
+  function updateSessionTickTooltips() {
+    const ticks = sessionStrip.children;
+    const total = ticks.length;
+    for (let i = 0; i < total; i++) {
+      const state = sessionSamples[i];
+      const secondsAgo = (total - 1 - i) * SESSION_TICK_SECONDS;
+      ticks[i].dataset.tooltip = secondsAgo === 0
         ? `${SESSION_STATE_LABEL[state]} · ahora`
         : `${SESSION_STATE_LABEL[state]} · hace ${secondsAgo}s`;
-      sessionStrip.appendChild(tick);
-    });
+    }
   }
 
   // ============================================================

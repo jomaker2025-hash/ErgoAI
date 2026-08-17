@@ -86,34 +86,55 @@ body {
   overflow-x: hidden;
 }
 
-/* ---------- 3. Fondo decorativo (manchas de color difuminadas) ---------- */
+/* ---------- 3. Fondo decorativo (manchas de color difuminadas) ----------
+   Arreglo (Kesta 17, rendimiento): esto animaba "background-position" —
+   una propiedad que NO acelera la tarjeta gráfica, así que el navegador
+   tenía que repintar la PANTALLA COMPLETA en cada cuadro, todo el
+   tiempo que la página estuviera abierta (34s en bucle, para siempre).
+   Ahora el degradado vive en un ::before más grande que la pantalla
+   (position:absolute, inset negativo) y lo único que se anima es su
+   "transform" — eso sí lo acelera la tarjeta gráfica. El elemento
+   .bg-glow en sí se deja "limpio" (sin fondo propio) porque
+   js/effects.js YA le aplica su propio transform (un paralaje sutil al
+   hacer scroll, con GSAP) — si el keyframe de aquí abajo also animara
+   "transform" en ESE MISMO elemento, los dos pelearían por la misma
+   propiedad. Separarlos en dos capas (elemento + ::before) evita el
+   choque sin tocar ese otro efecto. */
 .bg-glow {
   position: fixed;
   inset: 0;
   z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.bg-glow::before {
+  content: '';
+  position: absolute;
+  inset: -30%;
   background:
     radial-gradient(circle at 15% 20%, rgba(22, 201, 201, 0.18), transparent 35%),
     radial-gradient(circle at 85% 15%, rgba(255, 122, 41, 0.15), transparent 35%),
     radial-gradient(circle at 80% 85%, rgba(139, 47, 240, 0.18), transparent 35%),
     radial-gradient(circle at 10% 90%, rgba(238, 31, 143, 0.14), transparent 35%);
-  background-size: 180% 180%;
-  background-position: 50% 50%;
+  will-change: transform;
   animation: drift 34s ease-in-out infinite alternate;
 }
 
 /* Manchas de color a la deriva, muy lento — apenas perceptible, le da
-   vida al fondo sin distraer de la información real. */
+   vida al fondo sin distraer de la información real. El ::before mide
+   un 60% más que la pantalla (inset: -30%) a propósito, para que este
+   rango de movimiento nunca deje ver una orilla vacía. */
 @keyframes drift {
-  0% { background-position: 20% 20%; }
-  50% { background-position: 75% 65%; }
-  100% { background-position: 35% 80%; }
+  0% { transform: translate(0%, 0%); }
+  50% { transform: translate(-9%, -7%); }
+  100% { transform: translate(-4%, 9%); }
 }
 
 /* En modo presentación el fondo se mueve un poco más notorio — es la
    "pantalla de escenario" para los jueces, puede llamar un poco más
    la atención que en el uso normal del día a día. */
-.presentation-mode .bg-glow {
-  background-size: 220% 220%;
+.presentation-mode .bg-glow::before {
   animation-duration: 22s;
 }
 
@@ -646,6 +667,10 @@ body {
   border-radius: var(--radius-lg);
   padding: 28px 32px;
   animation: fade-in 0.6s ease 0.05s both;
+  /* Este módulo se actualiza solo (cada 2s mientras hay cámara
+     conectada, ver renderSessionStrip en app.js) — que el navegador
+     sepa que esos cambios no afectan al resto de la página. */
+  contain: layout paint style;
 }
 
 .session-header {
@@ -765,6 +790,13 @@ body {
 /* ---------- 8. Tarjeta grande de estado ---------- */
 .status-card {
   position: relative;
+  /* Le dice al navegador que lo que pasa AQUÍ ADENTRO (el resplandor
+     cambiando, el ícono "rebotando" al cambiar de estado, etc.) no
+     puede afectar el layout/pintura de nada de AFUERA — así no hace
+     falta que revise el resto de la página cada vez que esta tarjeta
+     cambia. Ahora es seguro (antes el resplandor por box-shadow se
+     salía del borde de la tarjeta; ya no, ver .status-glow). */
+  contain: layout paint style;
   background: var(--bg-elevated);
   border-radius: var(--radius-lg);
   padding: 56px 32px;
@@ -804,24 +836,48 @@ body {
   background: var(--gradient-bad);
 }
 
-/* Resplandor ambiental por debajo de la tarjeta, del color del estado
-   actual — un acabado "premium" sutil, nunca la única forma de saber
-   el estado (el texto, el ícono y el color del borde ya lo dicen). */
 .status-card {
-  box-shadow: 0 0 0 rgba(0, 0, 0, 0);
-  transition: transform 0.35s var(--ease-fluid), box-shadow 0.6s ease;
+  transition: transform 0.35s var(--ease-fluid);
 }
 
-.status-card.attention {
-  box-shadow: 0 30px 70px -20px rgba(250, 178, 25, 0.35);
+/* Resplandor ambiental del color del estado actual — un acabado
+   "premium" sutil, nunca la única forma de saber el estado (el texto,
+   el ícono y el color del borde ya lo dicen).
+
+   Arreglo (Kesta 17, rendimiento): esto ANTES era un box-shadow que se
+   transicionaba directo (verde → ámbar → rojo). Animar box-shadow
+   obliga al navegador a repintar la tarjeta entera en cada cuadro de
+   la transición — no lo procesa la tarjeta gráfica, lo hace el
+   procesador. Ahora son 3 capas ya pintadas de antemano (una por
+   estado, ver los <span class="status-glow-..."> en index.html), y lo
+   único que cambia al pasar de un estado a otro es su OPACIDAD — eso
+   sí lo acelera la tarjeta gráfica sin tocar el resto de la página. */
+.status-glow {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  opacity: 0;
+  transition: opacity 0.6s ease;
+  pointer-events: none;
+  will-change: opacity;
 }
 
-.status-card.bad {
-  box-shadow: 0 30px 70px -20px rgba(208, 59, 59, 0.4);
+.status-glow-good {
+  background: radial-gradient(120% 90% at 50% 120%, rgba(12, 163, 12, 0.32), transparent 70%);
 }
 
-.status-card:not(.attention):not(.bad) {
-  box-shadow: 0 30px 70px -24px rgba(12, 163, 12, 0.3);
+.status-glow-attention {
+  background: radial-gradient(120% 90% at 50% 120%, rgba(250, 178, 25, 0.38), transparent 70%);
+}
+
+.status-glow-bad {
+  background: radial-gradient(120% 90% at 50% 120%, rgba(208, 59, 59, 0.42), transparent 70%);
+}
+
+.status-card:not(.attention):not(.bad) .status-glow-good,
+.status-card.attention .status-glow-attention,
+.status-card.bad .status-glow-bad {
+  opacity: 1;
 }
 
 .live-badge {
@@ -928,6 +984,11 @@ body {
   border-radius: var(--radius-lg);
   padding: 36px;
   animation: fade-in 0.6s ease 0.15s both;
+  /* Se puede volver a dibujar hasta una vez por segundo mientras hay
+     cámara conectada (ver renderHistoryChart en app.js) — contenido
+     aparte del tooltip compartido (#chartTooltip), que vive FUERA de
+     este módulo a propósito, así que esto no lo afecta. */
+  contain: layout paint style;
 }
 
 .history-header {
@@ -1002,15 +1063,26 @@ body {
   border-bottom: 1px solid var(--card-border); /* línea base (eje), hairline */
 }
 
+/* Arreglo (Kesta 17, rendimiento): antes esto animaba "height" — una
+   propiedad de LAYOUT, que obliga al navegador a recalcular la posición
+   de todo lo que está alrededor en cada cuadro de la animación. Ahora
+   la barra siempre mide el 100% de su carril (.bar-track) y lo que
+   "crece" es una transformación (scaleY, con el origen abajo) — misma
+   idea visual, pero acelerada por la tarjeta gráfica, sin recalcular
+   el resto de la página. El % real lo pone app.js como
+   --bar-percent (variable CSS), ver renderHistoryChart(). */
 .bar-fill {
   position: absolute;
   bottom: 0;
   left: 0;
   width: 100%;
+  height: 100%;
+  transform: scaleY(var(--bar-percent, 0));
+  transform-origin: bottom;
   background: var(--teal);
   border-radius: 4px 4px 0 0;
   box-shadow: 0 0 10px rgba(22, 201, 201, 0.35);
-  transition: height 0.7s var(--ease-fluid), box-shadow 0.3s ease;
+  transition: transform 0.7s var(--ease-fluid);
 }
 
 .bar-col.is-today .bar-fill {
