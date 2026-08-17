@@ -1,5 +1,5 @@
 /* ============================================================
-   ErgoAI — Lógica de la aplicación (Kesta 11)
+   ErgoAI — Lógica de la aplicación (Kesta 18)
    ------------------------------------------------------------
    Este archivo maneja:
    1. La pantalla de carga (splash)
@@ -26,11 +26,6 @@
 
 (() => {
   'use strict';
-
-  // ---------- Motion (motion.dev) ----------
-  // Cargado como <script> global en index.html (ver comentario ahí).
-  // Listo para animaciones, ej.: animate('.status-card', { opacity: [0, 1] }).
-  const { animate, scroll, stagger, inView } = window.Motion || {};
 
   // ---------- Elementos del DOM ----------
   const splash = document.getElementById('splash');
@@ -157,9 +152,9 @@
     el.classList.add('icon-pop');
   }
 
-  // (Kesta 17: se quitó animateValue() de aquí — era del módulo "Tu
-  // progreso"/racha, eliminado en Kesta 10; la función se quedó
-  // huérfana, sin nadie que la llamara, desde entonces.)
+  // (Se quitó animateValue() de aquí — era del módulo "Tu progreso"/
+  // racha, eliminado en Kesta 10; la función se quedó huérfana, sin
+  // nadie que la llamara, desde entonces.)
 
   // ============================================================
   // 1. PANTALLA DE CARGA
@@ -275,13 +270,6 @@
     });
   }
   attachCursorGlow(statusCard);
-  // Mismo brillo, ahora también en las tarjetas nuevas con el efecto
-  // "spotlight" estilo Aceternity (ver .aceternity-spotlight en
-  // styles/tailwind.css) — reutiliza la función de arriba, sin duplicar
-  // lógica.
-  attachCursorGlow(cameraSetup);
-  attachCursorGlow(document.getElementById('hardwareSetup'));
-  document.querySelectorAll('.info-card').forEach(attachCursorGlow);
   bindTooltip(barChart);
   bindTooltip(sessionStrip);
 
@@ -304,42 +292,29 @@
   const HIP_TILT_MAX = 8; // grados de inclinación de cadera
   const DEFAULT_HEAD_GOOD = 0.27; // referencia genérica si nunca calibraste
   const DEFAULT_HEAD_ATTENTION = 0.23;
-
-  // Arreglo (Kesta 13): qué tan segura tiene que estar la IA de dónde
-  // está un punto para confiar en él. Antes solo se revisaba en la
-  // cadera; una mano pasando cerca de la cara o el hombro (rascarte,
-  // acomodarte el pelo, apoyar la barbilla) bajaba la confianza de esos
-  // puntos SIN que el código se diera cuenta, y el hombro/nariz seguían
-  // usándose igual — eso es lo que se veía como que "una mano afecta la
-  // postura". Ahora, si la nariz o los hombros no son confiables, el
-  // cuadro se descarta (se mantiene el último estado confirmado) en vez
-  // de arriesgarse a clasificar con datos malos.
-  //
-  // Arreglo (Kesta 14): 0.5 resultó DEMASIADO estricto — con luz normal
-  // de salón/mesa de feria, MediaPipe reporta "visibility" bastante más
-  // baja de lo que uno esperaría incluso con el cuerpo perfectamente a
-  // la vista, así que casi todos los cuadros se estaban descartando. Eso
-  // se sentía como "detección lenta" y "postura mala reconocida como
-  // buena" (el estado se quedaba congelado en el último confirmado) —
-  // y como el buzzer solo cambia cuando el estado confirmado cambia,
-  // también se sentía como "el buzzer no reacciona". Se baja a 0.3
-  // (sigue filtrando una oclusión real, pero ya no cuadros normales).
-  const LANDMARK_VISIBILITY_MIN = 0.3;
-  // Techo de lo que es una proporción realista de "cabeza alta", para
-  // detectar cuando alguien echa la cabeza MUY atrás (mirar el techo —
-  // justo lo primero que prueba alguien que no conoce el prototipo).
-  //
-  // Arreglo (Kesta 14): un número FIJO (0.5) no tiene sentido para
-  // todo el mundo — según dónde esté tu cámara, TU postura buena real
-  // puede dar una proporción más alta que eso, y entonces cada cuadro
-  // se marcaba "implausible" para siempre (mismo síntoma que arriba).
-  // Ahora el techo es relativo a TU referencia (calibrada o genérica),
-  // con margen de sobra, para adaptarse a cada cámara/persona.
-  const HEAD_RATIO_PLAUSIBLE_MARGIN = 0.35;
   // Con calibración personal, "bueno" y "atención" se miden relativo a TU
   // propio número, no al genérico:
   const HEAD_MARGIN_ATTENTION = 0.02; // cuánto por debajo de tu calibración ya es "atención"
   const HEAD_MARGIN_BAD = 0.05; // cuánto por debajo ya es "mala"
+
+  // Arreglo (Kesta 13/14): qué tan segura tiene que estar la IA de dónde
+  // está un punto para confiar en él. Si una mano tapa la cara/hombro un
+  // instante (rascarte, acomodarte el pelo, apoyar la barbilla), la
+  // confianza de esos puntos cae — sin esto, el hombro/nariz se seguían
+  // usando igual, y eso se veía como "una mano afecta la postura". 0.3
+  // (no un número más estricto): con luz normal de salón/mesa de feria,
+  // MediaPipe reporta "visibility" más baja de lo esperable incluso con
+  // el cuerpo perfectamente a la vista — un número más alto descartaba
+  // casi todos los cuadros, y ESO se sentía como "detección lenta" y
+  // "mala postura reconocida como buena" (ver MAX_UNRELIABLE_FRAMES).
+  const LANDMARK_VISIBILITY_MIN = 0.3;
+  // Techo de lo que es una proporción realista de "cabeza alta", para
+  // detectar cuando alguien echa la cabeza MUY atrás (mirar el techo —
+  // lo primero que prueba alguien que no conoce el prototipo). Relativo
+  // a TU referencia (calibrada o genérica) + margen generoso — un
+  // número fijo no sirve para todo el mundo, porque según la cámara TU
+  // postura buena real puede dar una proporción distinta.
+  const HEAD_RATIO_PLAUSIBLE_MARGIN = 0.35;
 
   // Cuántos cuadros seguidos con el MISMO estado nuevo se necesitan para
   // confirmar el cambio — evita que la tarjeta "parpadee" por un instante.
@@ -410,10 +385,10 @@
         // Arreglo (Kesta 17, rendimiento): sin esto, algunas cámaras le
         // entregan a MediaPipe cuadros de 720p (o más) sin necesidad —
         // el modelo de postura no necesita tanto detalle, y procesar
-        // cuadros más grandes cuesta más CPU en cada uno, para siempre
-        // mientras la cámara esté conectada. "ideal" (no "exact"/"min")
-        // para que la cámara elija lo más parecido que pueda, sin fallar
-        // en cámaras que no soportan justo esta medida.
+        // cuadros más grandes cuesta más CPU/GPU en cada uno, para
+        // siempre mientras la cámara esté conectada. "ideal" (no
+        // "exact"/"min") para que la cámara elija lo más parecido que
+        // pueda, sin fallar en cámaras que no soportan justo esta medida.
         video: { facingMode: 'user', width: { ideal: 480 }, height: { ideal: 360 } },
         audio: false,
       });
@@ -483,29 +458,6 @@
     sessionModule.hidden = true;
 
     sendHwCommand('OFF');
-
-    // Kesta 13: avisa a los efectos decorativos (partículas)
-    // que ya pueden volver a dibujar — mientras la cámara está conectada
-    // se quedan pausados, para no competirle presupuesto de CPU/GPU a la
-    // detección de postura real. Un CustomEvent (no una variable
-    // compartida) para que app.js no tenga que saber que esos efectos
-    // existen — si ninguno está cargado, este evento simplemente no lo
-    // escucha nadie.
-    //
-    // Arreglo (Kesta 15): además del evento, se guarda el estado en
-    // window.ErgoAI.cameraConnected. Kesta 13 carga effects.js DESPUÉS
-    // de activar la cámara (a propósito, para no competir por internet
-    // lento) — pero eso significaba que si conectabas la cámara ANTES
-    // de que ese archivo terminara de cargar, el evento se perdía:
-    // cuando por fin arrancaba, no tenía forma de saber que la cámara
-    // ya estaba prendida. Ahora revisa esta bandera al arrancar, no
-    // solo el evento. (Esto fue crítico mientras existió el fondo 3D
-    // con Three.js — quitado en Kesta 16 por seguir congelando la
-    // computadora del colegio — pero se deja el mismo mecanismo para
-    // las partículas, más livianas.)
-    window.ErgoAI = window.ErgoAI || {};
-    window.ErgoAI.cameraConnected = false;
-    window.dispatchEvent(new CustomEvent('ergoai:camera', { detail: { connected: false } }));
   }
 
   function onCameraConnected() {
@@ -551,13 +503,6 @@
     // Si la placa del buzzer ya estaba conectada, avísale el estado actual
     // de una vez (en vez de esperar hasta 1 segundo al primer tick)
     syncHardwareState(confirmedState);
-
-    // Kesta 13/15: avisa a los efectos decorativos que se pausen mientras
-    // la cámara está activa (ver la nota completa en disconnectCamera) —
-    // bandera Y evento, para que también lo sepan si arrancan DESPUÉS.
-    window.ErgoAI = window.ErgoAI || {};
-    window.ErgoAI.cameraConnected = true;
-    window.dispatchEvent(new CustomEvent('ergoai:camera', { detail: { connected: true } }));
   }
 
   function initPoseIfNeeded() {
@@ -571,15 +516,12 @@
     });
     pose.setOptions({
       // Arreglo (Kesta 17): modelComplexity 1 ("Full") es más preciso,
-      // pero también más pesado — MediaPipe usa la tarjeta gráfica por
-      // dentro para esto, y en una tarjeta gráfica modesta (como la de
-      // la compu del colegio) eso puede congelar la computadora al
-      // activar la cámara, con o sin nuestro propio fondo 3D (que ya se
-      // quitó en Kesta 16). 0 ("Lite") es más liviano y sigue siendo
-      // suficiente para las 3 señales que usamos (hombros, cadera,
-      // cabeza son puntos grandes y fáciles de rastrear, no necesitan
-      // la precisión extra del modelo completo). Confiable > preciso
-      // al milímetro para la demo de la feria.
+      // pero MediaPipe usa la tarjeta gráfica por dentro para esto, y en
+      // una tarjeta gráfica modesta (como la de la compu del colegio)
+      // eso puede congelar la computadora al activar la cámara. 0
+      // ("Lite") es más liviano y sigue siendo suficiente para las 3
+      // señales que usamos (hombros, cadera, cabeza son puntos grandes
+      // y fáciles de rastrear). Confiable > preciso al milímetro.
       modelComplexity: 0,
       smoothLandmarks: true,
       minDetectionConfidence: 0.5,
@@ -733,8 +675,9 @@
     const shouldersVisible = (lSh.visibility || 0) > LANDMARK_VISIBILITY_MIN && (rSh.visibility || 0) > LANDMARK_VISIBILITY_MIN;
 
     const headRatio = shoulderWidth > 0 ? (shCenterY - nose.y) / shoulderWidth : 0;
-    // Relativo a TU referencia (ver nota de Kesta 14 arriba) — no un
-    // número fijo igual para todas las cámaras/personas.
+    // Relativo a TU referencia (calibrada o genérica) — no un número
+    // fijo igual para todas las cámaras/personas (ver nota de Kesta 14
+    // junto a HEAD_RATIO_PLAUSIBLE_MARGIN).
     const headRatioCeiling = (calibratedHeadRatio !== null ? calibratedHeadRatio : DEFAULT_HEAD_GOOD) + HEAD_RATIO_PLAUSIBLE_MARGIN;
     const headRatioPlausible = headRatio <= headRatioCeiling;
 
@@ -986,10 +929,10 @@
   // 7 barras Y las 7 filas de la tabla desde cero cada vez — con
   // .bar-fill { transition: height ... }, eso significa que el navegador
   // volvía a "animar" la barra de hoy CADA SEGUNDO (elemento nuevo, sin
-  // altura previa, izq. transición desde 0) — el mismo tipo de "tembleque"
-  // que ya habíamos identificado y quitado del módulo de racha en Kesta
-  // 10, solo que aquí seguía sin que nos diéramos cuenta. La solución es
-  // la misma: no volver a dibujar si los datos que se ven en pantalla no
+  // altura previa) — el mismo tipo de "tembleque" que ya habíamos
+  // identificado y quitado del módulo de racha en Kesta 10, solo que
+  // aquí seguía sin que nos diéramos cuenta. La solución es la misma:
+  // no volver a dibujar si los datos que se ven en pantalla no
   // cambiaron de verdad.
   let lastHistorySignature = null;
 
@@ -1000,9 +943,9 @@
     const today = todayKey();
 
     // "Firma" barata de lo que se vería en pantalla (7 días, cada uno
-    // como "clave:porcentaje") — si es idéntica a la última vez, los
-    // datos visibles no cambiaron (lo más común: pasó un segundo pero
-    // el % redondeado de hoy sigue igual) y no hay nada que redibujar.
+    // como "clave:porcentaje") — si es idéntica a la última vez, no hay
+    // nada que redibujar (lo más común: pasó un segundo pero el %
+    // redondeado de hoy sigue igual).
     const signature = days.map((d) => {
       const key = todayKey(d);
       const day = history[key];
@@ -1038,11 +981,7 @@
       track.className = 'bar-track';
       const fill = document.createElement('div');
       fill.className = 'bar-fill';
-      // Arreglo (Kesta 17, rendimiento): antes se ponía fill.style.height
-      // (una propiedad de layout); ahora es una variable CSS que .bar-fill
-      // usa para su transform: scaleY(...) — ver style.css. Misma barra
-      // "creciendo", pero por transform en vez de layout.
-      fill.style.setProperty('--bar-percent', hasData ? Math.max(percent, 3) / 100 : 0);
+      fill.style.height = hasData ? `${Math.max(percent, 3)}%` : '0%';
       track.appendChild(fill);
 
       const labelEl = document.createElement('span');
@@ -1096,10 +1035,7 @@
   // "ventana deslizante" (se agrega al final, se quita del principio
   // cuando llega al tope) — así que el DOM puede actualizarse igual:
   // se agrega SOLO la barrita nueva, y se quita SOLO la más vieja si
-  // hace falta. Los textos de "hace Ns" sí cambian en todas cada vez
-  // (todo se corrió 2s), pero actualizar un atributo de texto en
-  // elementos que YA EXISTEN es muchísimo más barato que destruir y
-  // volver a crear el elemento entero — que es lo que de verdad cuesta.
+  // hace falta.
   function renderSessionStrip() {
     if (sessionSamples.length === 0) {
       sessionStrip.innerHTML = '';
@@ -1117,9 +1053,6 @@
       sessionStrip.innerHTML = '';
       sessionSamples.forEach((state) => sessionStrip.appendChild(makeSessionTick(state)));
     } else {
-      // Se agregó una muestra nueva al final; si ya estábamos en el
-      // tope, recordSessionPoint ya quitó la más vieja de sessionSamples
-      // — se refleja quitando también su barrita del DOM.
       sessionStrip.appendChild(makeSessionTick(sessionSamples[sessionSamples.length - 1]));
       while (sessionStrip.children.length > sessionSamples.length) {
         sessionStrip.removeChild(sessionStrip.firstElementChild);
@@ -1170,10 +1103,10 @@
   const hwUnsupportedMsg = document.getElementById('hwUnsupportedMsg');
   const hwError = document.getElementById('hwError');
 
-  // Arreglo: los errores de LA PLACA (puerto vacío, driver faltante,
-  // etc.) usaban por error showCameraError() — eso los mostraba en la
-  // sección de la cámara, lejos de "Conectar placa", así que fácil
-  // pasaban desapercibidos. Ahora tienen su propio aviso, junto al botón.
+  // Arreglo (Kesta 16): los errores de LA PLACA (puerto vacío, driver
+  // faltante, etc.) usaban por error showCameraError() — eso los
+  // mostraba en la sección de la cámara, lejos de "Conectar placa", así
+  // que fácil pasaban desapercibidos. Ahora tienen su propio aviso.
   function showHwError(msg) {
     if (!hwError) return;
     hwError.innerHTML = msg;
@@ -1255,12 +1188,12 @@
         // Pasa si el usuario cierra el selector de puerto sin elegir nada —
         // O si la lista aparece VACÍA porque Windows todavía no reconoce la
         // placa (falta el driver "CH340", muy común en una computadora
-        // donde nunca se ha conectado una placa como esta — por ejemplo,
-        // "funciona en mi compu pero no en la del colegio" es justo este
-        // caso). Como no podemos distinguir "cancelaste a propósito" de
-        // "no había nada para elegir", damos un aviso completo por si
-        // acaso, con el link directo al driver (no "búscalo en internet",
-        // para no mandar a nadie a bajar un instalador de un sitio raro).
+        // donde nunca se ha conectado una placa como esta — "funciona en
+        // esta compu pero no en la del colegio" es justo este caso). Como
+        // no podemos distinguir "cancelaste a propósito" de "no había
+        // nada para elegir", damos un aviso completo por si acaso, con el
+        // link directo al driver (no "búscalo en internet", para no
+        // mandar a nadie a bajar un instalador de un sitio raro).
         showHwError(
           'Si la lista de puertos salió vacía (o no viste tu placa ahí), esta computadora probablemente nunca instaló el driver "CH340" — pasa la primera vez que se conecta una placa así en una computadora nueva. ' +
           '<a href="https://www.wch-ic.com/downloads/CH341SER_ZIP.html" target="_blank" rel="noopener noreferrer">Descarga el driver oficial aquí</a>, instálalo, ' +

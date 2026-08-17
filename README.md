@@ -57,10 +57,7 @@ IdeaBoard) — **requerida para la demo de la feria**: luz verde = buena postura
 
 | Parte | Tecnología |
 |---|---|
-| Interfaz | HTML + JavaScript puro (sin frameworks), estilos con Tailwind CSS + CSS a mano |
-| Estilos | [Tailwind CSS v4](https://tailwindcss.com) (compilado con su CLI, ver abajo) para lo nuevo + `style.css` a mano para el diseño ya afinado de antes |
-| Animaciones de scroll | [Motion](https://motion.dev) (sucesor vanilla de Framer Motion) para animar la entrada de las secciones; [GSAP](https://gsap.com) + ScrollTrigger para animaciones atadas al progreso del scroll |
-| Scroll suave | [Lenis](https://lenis.darkroom.engineering) (Studio Freight) |
+| Interfaz | HTML, CSS y JavaScript puro — sin frameworks, sin build, sin dependencias de Node |
 | Detección de postura (web) | [MediaPipe Pose](https://developers.google.com/mediapipe) (corre en el navegador, con un bucle propio de envío de cuadros — no la utilidad "Camera" de MediaPipe, que abre su propio acceso a la cámara por dentro y causaba conflictos) |
 | Detección de postura (escritorio) | MediaPipe Pose + OpenCV, en Python (`desktop/`) |
 | Cámara | La del propio dispositivo, vía `getUserMedia` (web) u OpenCV (escritorio) |
@@ -68,36 +65,24 @@ IdeaBoard) — **requerida para la demo de la feria**: luz verde = buena postura
 | Guardado de progreso | `localStorage` del navegador (sin servidor/base de datos) |
 | Hosting | GitHub Pages |
 
-> **¿Por qué no shadcn/ui?** Es una herramienta exclusiva de React (genera
-> componentes `.tsx`) — no existe para HTML/CSS/JS puro. En vez de
-> reescribir todo ErgoAI en React (con el riesgo de tener que volver a
-> probar a fondo la cámara/IA/placa justo antes de la feria), se recreó el
-> mismo lenguaje visual a mano con Tailwind (`.ui-btn`, `.ui-card`,
-> `.ui-badge` en `styles/tailwind.css`).
->
-> **¿Y el fondo 3D con Three.js/React Three Fiber que hubo?** Se probó
-> (Kesta 12) con Three.js puro (sin necesidad de React) y se quitó por
-> completo en Kesta 16: aunque en Kesta 15 se corrigió una condición de
-> carrera que lo hacía encender sin saber que la cámara ya estaba en uso,
-> en la computadora del colegio (gráficos más modestos, imposible de
-> probar de forma remota) seguía congelando el sistema al activar la
-> cámara. Para una demo de feria, confiable importa más que bonito.
+> **Nota de historial:** entre Kesta 12 y Kesta 17 este proyecto tuvo, por
+> un tiempo, Tailwind CSS, GSAP, Lenis, Motion y un fondo 3D interactivo
+> con Three.js — un acabado visual más elaborado. Se quitó todo por
+> completo en Kesta 18: esas librerías, sumadas al uso normal de la
+> cámara/IA, terminaban congelando computadoras con gráficos más modestos
+> (como la del colegio) — y para una demo de feria, **confiable importa
+> más que bonito**. Lo que sí se quedó, porque son arreglos reales a la
+> cámara/IA/placa (no decoración): la detección resistente a que una mano
+> tape la cara, el modelo de IA más liviano, el límite de resolución de
+> cámara, y que el historial/sesión en vivo no se redibujen sin necesidad.
 
 ## Estructura del proyecto
 
 ```
 ErgoAI/
 ├── index.html                # Estructura de la página
-├── style.css                  # Diseño visual ya afinado (Kesta 1-11)
-├── tailwind.build.css         # Tailwind ya compilado — el que de verdad sirve GitHub Pages
-├── styles/
-│   └── tailwind.css               # Entrada de Tailwind: tema + "componentes base" + efectos Aceternity
+├── style.css                  # Todo el diseño visual
 ├── app.js                     # Lógica: IA, cámara, historial, notificaciones, buzzer
-├── js/
-│   ├── loader.js                  # Carga lo decorativo DESPUÉS de lo crítico (ver "Rendimiento")
-│   └── effects.js                 # Lenis, GSAP/ScrollTrigger, Motion (entrada al hacer scroll), partículas
-├── vendor/                    # Motion/GSAP/ScrollTrigger/Lenis autohospedados (ver "Rendimiento")
-├── package.json                # Solo para compilar Tailwind — el sitio en sí no necesita Node
 ├── manifest.json              # Para poder "instalar" la página como app
 ├── assets/                    # Logo e íconos
 ├── hardware/
@@ -114,117 +99,42 @@ ErgoAI/
 
 ## Cómo correrlo localmente
 
-Es un sitio 100% estático — el `tailwind.build.css` ya viene compilado y
-subido al repositorio, así que para solo VERLO no hace falta instalar nada:
+Es un sitio 100% estático — no necesita instalar nada especial:
 
 ```bash
 python -m http.server 8000
 ```
 
-Node/npm solo hacen falta si vas a **editar los estilos de Tailwind**
-(clases nuevas en `styles/tailwind.css` o clases de Tailwind en
-`index.html`):
-
-```bash
-npm install          # una sola vez
-npm run watch:css    # recompila solo mientras editas
-npm run build:css    # compila una vez (antes de subir tus cambios)
-```
-
-Si olvidas correr `npm run build:css` antes de subir un cambio de estilos,
-la página seguirá funcionando — solo que con el CSS compilado más viejo,
-sin tu cambio nuevo.
-
 Y abre `http://localhost:8000` en tu navegador. La cámara solo funciona en `https://`
 o en `localhost` — es una regla de seguridad de los navegadores, no un error nuestro.
 
-## Rendimiento (Kesta 13)
+## Rendimiento y confiabilidad (Kesta 17-18)
 
-Kesta 12 agregó bastantes librerías decorativas (Tailwind, Motion, GSAP,
-ScrollTrigger, Lenis, Three.js) y eso, en la práctica, metió lag — sobre
-todo grave con mal internet. Kesta 13 lo reorganizó así:
+El congelamiento de la computadora al activar la cámara (reportado sobre
+todo en la compu del colegio, con gráficos más modestos) llevó a dos
+decisiones:
 
-- **Todo lo decorativo está autohospedado** en `vendor/` — ya NO se
-  descarga de un CDN externo (jsdelivr). Solo MediaPipe (la IA de
-  postura) sigue viniendo de un CDN, porque sus modelos son demasiado
-  grandes para guardarlos en el repositorio.
-- **Lo decorativo se carga DESPUÉS de que la página ya esté lista**
-  (`js/loader.js`, después del evento `load`) — la cámara, la IA y la
-  placa nunca esperan a Motion/GSAP/Lenis.
-- **En conexiones lentas o con "modo ahorro de datos" activado**
-  (`navigator.connection`), lo decorativo se **salta por completo** —
-  cero bytes de más. Las secciones se muestran de una vez, sin animación
-  de entrada, en vez de arriesgarse a quedar invisibles esperando una
-  librería que nunca llegó a cargar.
-- **Las partículas se PAUSAN mientras la cámara está conectada** (evento
-  `ergoai:camera`, que manda `app.js`) — mientras estás usando la
-  función que de verdad importa, nada decorativo le compite presupuesto
-  de CPU a MediaPipe.
-- Menos partículas por pantalla, tope de resolución más bajo.
+- **Se quitó todo lo decorativo agregado en Kesta 12-16** (Tailwind,
+  GSAP, Lenis, Motion, el fondo 3D con Three.js, las partículas) — no
+  aportaban a la función real del proyecto, y cada una sumaba trabajo de
+  más justo cuando la cámara/IA más lo necesitan. Confiable > bonito.
+- **MediaPipe usa la tarjeta gráfica por dentro** (con o sin nuestras
+  propias animaciones) — así que además se bajó `modelComplexity` de 1
+  ("Full") a 0 ("Lite") y se limitó la resolución que le pide a la
+  cámara (480×360 en vez de sin límite). Nuestras 3 señales (hombros,
+  cadera, cabeza) son puntos grandes y fáciles de rastrear; no hacía
+  falta el modelo completo.
 
-**Kesta 15 y 16 — "se congela la computadora al activar la cámara":**
-había también un fondo 3D interactivo con Three.js. Como todo lo
-decorativo se carga DESPUÉS de la página (ver arriba), si activabas la
-cámara justo mientras esa librería seguía cargando, el aviso de "la
-cámara ya está prendida" se podía perder — y el fondo 3D encendía un
-contexto WebGL entero sin saber que la IA ya estaba usando la
-cámara/GPU. En computadoras con gráficos integrados modestos (como la
-del colegio), dos cosas así peleando por el mismo recurso puede
-congelar todo el sistema, no solo la pestaña. Kesta 15 arregló la
-condición de carrera que lo causaba, pero como seguía pasando en la
-computadora del colegio (imposible de probar de forma remota), **Kesta
-16 quitó el fondo 3D por completo** — para una demo de feria, confiable
-importa más que bonito. Las partículas (canvas 2D, mucho más livianas,
-sin WebGL) se quedaron.
-
-**Kesta 17 — optimización a fondo (el congelamiento seguía pasando
-incluso SIN el fondo 3D):** eso confirmó que MediaPipe (la IA de
-postura) también usa la tarjeta gráfica por dentro — no hacía falta
-nuestro propio fondo 3D para saturarla en una computadora modesta. Dos
-arreglos directos a eso:
-- `modelComplexity` de MediaPipe bajado de 1 ("Full") a 0 ("Lite") —
-  más liviano, tanto en CPU como en GPU; nuestras 3 señales (hombros,
-  cadera, cabeza) son puntos grandes y fáciles de rastrear, así que no
-  hace falta el modelo completo.
-- La cámara ahora se pide con una resolución máxima razonable (480×360
-  en vez de sin límite) — algunas cámaras le entregaban a MediaPipe
-  cuadros de 720p o más sin necesidad.
-
-Además, una auditoría completa contra una lista de buenas prácticas de
-rendimiento web encontró varios puntos reales que sí aplicaban a este
-proyecto (no todos — el documento mencionaba, por ejemplo, un "medidor
-circular" que ErgoAI nunca tuvo):
+Aparte, dos bugs reales encontrados en una auditoría de rendimiento (no
+relacionados con lo decorativo, así que se quedaron):
 - El historial de 7 días y la sesión en vivo se **redibujaban enteros**
   cada 1-2 segundos mientras había cámara conectada, aunque casi nada
-  hubiera cambiado — el mismo tipo de bug que causó el "tembleque" de
-  la racha en Kesta 10, solo que nadie se había dado cuenta de que
-  seguía pasando en otros módulos. Ahora solo se actualiza lo que de
-  verdad cambió.
-- El resplandor de la tarjeta de estado (verde/ámbar/rojo) y las barras
-  del historial animaban `box-shadow`/`height` — propiedades que
-  obligan al navegador a repintar en vez de usar la tarjeta gráfica.
-  Ahora usan `opacity`/`transform`, que sí acelera la GPU.
-- El fondo animado de manchas de color y el borde giratorio de la
-  tarjeta principal animaban `background-position` y una variable CSS
-  usada dentro de un degradado — ambos casos obligaban a repintar la
-  PANTALLA COMPLETA en bucle infinito, para siempre, mientras la página
-  estuviera abierta. Ahora animan `transform` en una capa aparte.
-- `contain: layout paint style` en los módulos que se actualizan solo
-  (tarjeta de estado, sesión en vivo, historial) — le dice al navegador
-  que esos cambios no afectan al resto de la página.
-- Se quitó una función (`animateValue`) que ya no la llamaba nadie
-  desde que se quitó la racha en Kesta 10.
-
-Lo único que se dejó pendiente a propósito: mover MediaPipe a un Web
-Worker (hilo aparte). Es la optimización más profunda posible, pero
-también la más riesgosa — reescribiría por completo cómo se comunican
-la cámara, la IA y la placa, justo la parte más importante del
-proyecto, días antes de la feria. Se puede retomar después de la
-competencia si sigue haciendo falta.
-
-Si aun así notas lag en una computadora en particular, lo más rápido es
-abrir la consola del navegador (F12) — `js/loader.js` avisa ahí mismo si
-detectó una conexión lenta y decidió saltarse los efectos.
+  hubiera cambiado — el mismo tipo de bug que causó el "tembleque" de la
+  racha en Kesta 10, solo que nadie se había dado cuenta de que seguía
+  pasando en otros módulos. Ahora solo se actualiza lo que de verdad
+  cambió.
+- Una función (`animateValue`) que ya no la llamaba nadie desde que se
+  quitó la racha en Kesta 10.
 
 ## Hardware: alerta física (requerida en la feria)
 
