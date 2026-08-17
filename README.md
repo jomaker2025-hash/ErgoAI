@@ -29,10 +29,11 @@ IdeaBoard) — **requerida para la demo de la feria**: luz verde = buena postura
   y dar permiso de cámara.
 - 🎯 **Calibración personal**: en vez de un número genérico, el sistema aprende TU
   propia postura correcta (3 señales: hombros, cadera y cabeza).
-- 🛡️ **Resistente a falsos positivos** (Kesta 13): si una mano tapa la cara/hombro un
-  instante (rascarte, acomodarte el pelo) o si echas la cabeza muy atrás — lo primero
-  que prueba alguien que no conoce el prototipo — ErgoAI no confía en ese cuadro y
-  mantiene el último estado bueno, en vez de reportar un problema de postura falso.
+- 🛡️ **Resistente a falsos positivos y reacciona rápido**: si una mano tapa la
+  cara/hombro un instante (rascarte, acomodarte el pelo), ErgoAI no confía en ese
+  cuadro y mantiene el último estado bueno. Si echas la cabeza muy atrás — lo primero
+  que prueba alguien que no conoce el prototipo — lo reconoce DE INMEDIATO como mala
+  postura (Kesta 19), en vez de ignorarlo y sentirse "roto" un rato (Kesta 13-14).
 - 🚦 **3 estados reales**: buena / atención / mala postura — no solo bueno-o-malo — los
   mismos 3 que ve reflejados la placa física.
 - 📈 **Sesión en vivo**: línea de tiempo en tiempo real de los últimos minutos de tu

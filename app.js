@@ -314,6 +314,14 @@
   // a TU referencia (calibrada o genérica) + margen generoso — un
   // número fijo no sirve para todo el mundo, porque según la cámara TU
   // postura buena real puede dar una proporción distinta.
+  //
+  // Arreglo (Kesta 19): pasar este techo YA NO marca el cuadro como "no
+  // confiable" (eso hacía que la app se quedara sin reaccionar un rato
+  // largo — se sentía como que "no funciona" justo cuando alguien
+  // probaba esa posición por primera vez). Ahora se reconoce de
+  // inmediato como mala postura (ver classifyPosture) — responde
+  // rápido, y además es la clasificación correcta: recostarse así de
+  // atrás tampoco es una postura sana frente a una pantalla.
   const HEAD_RATIO_PLAUSIBLE_MARGIN = 0.35;
 
   // Cuántos cuadros seguidos con el MISMO estado nuevo se necesitan para
@@ -679,16 +687,22 @@
     // fijo igual para todas las cámaras/personas (ver nota de Kesta 14
     // junto a HEAD_RATIO_PLAUSIBLE_MARGIN).
     const headRatioCeiling = (calibratedHeadRatio !== null ? calibratedHeadRatio : DEFAULT_HEAD_GOOD) + HEAD_RATIO_PLAUSIBLE_MARGIN;
-    const headRatioPlausible = headRatio <= headRatioCeiling;
 
     return {
       shoulderTilt: tiltAngle(lSh, rSh),
       hipTilt: hipVisible ? tiltAngle(lHip, rHip) : null,
       headRatio,
+      // Arreglo (Kesta 19): antes, pasar este techo marcaba el cuadro
+      // entero como "no confiable" y la app se quedaba SIN REACCIONAR
+      // hasta 20 cuadros seguidos — eso es justo lo que probaba
+      // primero alguien que no conoce el prototipo (echarse MUY atrás),
+      // y se sentía como que "no funciona". Ahora se trata aparte (ver
+      // classifyPosture): se reconoce de inmediato como mala postura,
+      // en vez de ignorarse — responde rápido Y correcto.
+      headRatioExtreme: headRatio > headRatioCeiling,
       // false = no confíes en este cuadro para clasificar (mano tapando
-      // la cara/hombro, o un ángulo de cabeza tan extremo que la nariz
-      // ya no se está proyectando de forma realista).
-      reliable: noseVisible && shouldersVisible && headRatioPlausible,
+      // la cara o el hombro un instante).
+      reliable: noseVisible && shouldersVisible,
     };
   }
 
@@ -708,6 +722,13 @@
   // cabeza está claramente baja, es mala postura sin importar lo demás.
   // Mismo orden de decisión que el script de Python que ya funciona.
   function classifyPosture(m) {
+    // Cabeza echada MUY atrás (más allá de lo que da una postura real,
+    // incluso la tuya calibrada) — se clasifica directo como mala
+    // postura. Es justo lo primero que prueba alguien que no conoce el
+    // prototipo, así que aquí conviene responder rápido: mejor "mala
+    // postura" de inmediato que quedarse sin decir nada un rato.
+    if (m.headRatioExtreme) return 'bad';
+
     let goodThreshold = DEFAULT_HEAD_GOOD;
     let attentionThreshold = DEFAULT_HEAD_ATTENTION;
     if (calibratedHeadRatio !== null) {

@@ -299,7 +299,14 @@ def calcular_metricas(landmarks, mp_pose) -> Metricas:
 
     distancia_cabeza = hombro_y - nariz.y
     cabeza_ratio = distancia_cabeza / ancho_hombros if ancho_hombros > 0 else 0.0
-    cabeza_ratio = min(cabeza_ratio, CABEZA_RATIO_MAX_REALISTA)
+    # Arreglo (Kesta 19): antes se recortaba (min()) el valor aquí mismo,
+    # así que una cabeza echada MUY atrás (justo lo primero que prueba
+    # alguien que no conoce el prototipo) terminaba con un cabeza_ratio
+    # todavía por ENCIMA de CABEZA_GOOD, y clasificar_postura la
+    # reportaba como "BUENA POSTURA" -- justo al revés de lo que
+    # necesitábamos. Ya no se recorta aquí: clasificar_postura revisa el
+    # valor real y lo clasifica directo como mala postura si se pasa de
+    # CABEZA_RATIO_MAX_REALISTA (ver ahí).
 
     # ---------------------------------------------------------
     # Joroba / espalda encorvada, SIN usar Z (2D puro)
@@ -413,6 +420,21 @@ class Suavizador:
 
 def clasificar_postura(metricas: Metricas, baseline: Optional[Baseline]) -> Postura:
     """Decide GOOD/ATTENTION/BAD a partir de las métricas (y la calibración, si existe)."""
+
+    # Arreglo (Kesta 19): cabeza echada MUY atrás (más allá de
+    # CABEZA_RATIO_MAX_REALISTA) se clasifica directo como mala postura,
+    # antes que cualquier otra revisión. Es justo lo primero que prueba
+    # alguien que no conoce el prototipo, y recostarse así tampoco es
+    # una postura sana frente a una pantalla -- no tiene sentido tratarlo
+    # como "buena postura" solo porque el número crudo es alto.
+    if metricas.cabeza_ratio > CABEZA_RATIO_MAX_REALISTA:
+        return Postura(
+            metricas=metricas,
+            problemas=1,
+            razones=("Cabeza muy atrás",),
+            estado="BAD",
+            texto="MALA POSTURA",
+        )
 
     problemas = 0
     razones = []
