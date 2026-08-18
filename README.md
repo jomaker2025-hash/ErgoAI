@@ -44,6 +44,11 @@ IdeaBoard) — **requerida para la demo de la feria**: luz verde = buena postura
   terminar un ejercicio — con el % real de tu sesión en cada estado y un mensaje
   constructivo sobre qué podría pasar si la mala postura se vuelve un hábito, sin ser
   alarmista. Datos 100% de ESA conexión, nada inventado.
+- 📱 **Código QR con tu reporte** (Kesta 22): el resumen incluye un QR — escanéalo con
+  tu celular y se abre `resumen.html`, una página aparte con tu mismo resumen ya bonito,
+  lista para guardarse como PDF (botón "Guardar como PDF", usa la función nativa de
+  imprimir del navegador). Sin servidor de por medio: los datos van en la URL misma, todo
+  se arma en el navegador de quien escanea.
 - 📊 **Historial**: gráfica de los últimos 7 días, con tooltips propios y vista en tabla —
   datos reales, guardados en `localStorage`.
 - 🔔 **Alertas**: sonido + notificación cuando llevas tiempo prolongado en mala
@@ -89,6 +94,9 @@ ErgoAI/
 ├── index.html                # Estructura de la página
 ├── style.css                  # Todo el diseño visual
 ├── app.js                     # Lógica: IA, cámara, historial, notificaciones, buzzer
+├── resumen.html                # Reporte de sesión (Kesta 22) — standalone, sin cámara/IA
+├── vendor/
+│   └── qrcode.js                  # Generador de QR (autohospedado, se carga solo al hacer falta)
 ├── manifest.json              # Para poder "instalar" la página como app
 ├── assets/                    # Logo e íconos
 ├── hardware/

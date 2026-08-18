@@ -1,0 +1,269 @@
+<!-- ============================================================
+     ErgoAI — Reporte de sesión (Kesta 22)
+     ------------------------------------------------------------
+     Página COMPLETAMENTE APARTE de index.html/app.js a propósito:
+     no toca la cámara, la IA ni la placa para nada — ni siquiera las
+     carga. Solo lee los números de la URL (?nombre=...&buena=...) y
+     los pinta bonito, con un botón para guardarlo como PDF.
+
+     A dónde llega alguien aquí: escaneando el código QR que aparece
+     en el resumen de sesión de index.html (ver showSessionSummaryIfAny
+     y buildQrForSummary en app.js) — el QR no es más que un link a
+     ESTA página, con los datos de esa sesión en la URL. No hay
+     servidor de por medio: todo el "documento" se arma aquí mismo, en
+     el navegador de quien escanea.
+     ============================================================ -->
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#05050a" />
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
+  <title>Tu resumen de postura | ErgoAI</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <!-- Reusa la misma paleta/variables de color que el resto de ErgoAI
+       (solo el CSS — style.css no tiene ningún efecto secundario de
+       JavaScript, es 100% seguro cargarlo aparte de app.js). -->
+  <link rel="stylesheet" href="style.css" />
+
+  <style>
+    /* Estilos propios de esta página — el "documento" en sí. */
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 24px;
+    }
+    .report-card {
+      width: min(94vw, 480px);
+      background: var(--bg-elevated);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-lg);
+      padding: 40px 36px;
+    }
+    .report-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 28px;
+    }
+    .report-brand .logo-badge {
+      width: 38px;
+      height: 38px;
+    }
+    .report-brand h1 {
+      font-family: 'Sora', sans-serif;
+      font-size: 1.1rem;
+    }
+    .report-brand h1 span {
+      background: var(--gradient-main);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    .report-eyebrow {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--text-secondary);
+    }
+    .report-title {
+      font-family: 'Sora', sans-serif;
+      font-size: 1.6rem;
+      margin: 6px 0 4px;
+    }
+    .report-date {
+      font-size: 0.82rem;
+      color: var(--text-secondary);
+      margin-bottom: 24px;
+    }
+    .report-bars {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    .report-bar-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.85rem;
+    }
+    .report-bar-label {
+      width: 80px;
+      flex-shrink: 0;
+      color: var(--text-secondary);
+    }
+    .report-bar-track {
+      flex: 1;
+      height: 12px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.06);
+      overflow: hidden;
+    }
+    .report-bar-fill {
+      height: 100%;
+      border-radius: 999px;
+    }
+    .report-bar-fill.good { background: var(--status-good); }
+    .report-bar-fill.attention { background: var(--status-attention); }
+    .report-bar-fill.bad { background: var(--status-bad); }
+    .report-bar-pct {
+      width: 42px;
+      flex-shrink: 0;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+    .report-message {
+      font-size: 0.92rem;
+      line-height: 1.6;
+      color: var(--text-secondary);
+      background: var(--bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-sm);
+      padding: 16px 18px;
+      margin-bottom: 28px;
+    }
+    .report-actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .report-footer {
+      margin-top: 24px;
+      font-size: 0.72rem;
+      color: var(--text-secondary);
+      text-align: center;
+    }
+    .report-empty {
+      text-align: center;
+      color: var(--text-secondary);
+      padding: 20px 0;
+    }
+
+    /* Al imprimir / "Guardar como PDF": se ve limpio, sin botones ni
+       fondo oscuro — un documento de verdad, no una captura de pantalla
+       de la página. */
+    @media print {
+      body { min-height: 0; padding: 0; background: #fff; }
+      .bg-glow, .report-actions { display: none !important; }
+      .report-card {
+        width: 100%;
+        border: none;
+        background: #fff;
+        color: #111;
+        box-shadow: none;
+      }
+      .report-date, .report-message, .report-bar-label, .report-footer {
+        color: #444;
+      }
+      .report-message { background: #f4f4f6; border-color: #ddd; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Mismas manchas de color de fondo que el resto de ErgoAI, puramente decorativas -->
+  <div class="bg-glow"></div>
+
+  <div class="report-card" id="reportCard">
+    <div class="report-brand">
+      <div class="logo-badge">
+        <img src="assets/logo-kesta.png" alt="Logo KESTA" class="logo-img"
+             onerror="this.classList.add('logo-img--hidden'); this.nextElementSibling.classList.add('logo-fallback--visible');" />
+        <div class="logo-fallback">K</div>
+      </div>
+      <h1>Ergo<span>AI</span></h1>
+    </div>
+
+    <div id="reportContent">
+      <!-- Lo llena reporte.js abajo, según los datos de la URL -->
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      'use strict';
+
+      // ---------- Lee los datos de la URL (?nombre=...&buena=80&atencion=15&mala=5&fecha=...) ----------
+      const params = new URLSearchParams(location.search);
+      const nombre = (params.get('nombre') || '').slice(0, 40);
+      const buena = Math.max(0, Math.min(100, parseInt(params.get('buena'), 10) || 0));
+      const atencion = Math.max(0, Math.min(100, parseInt(params.get('atencion'), 10) || 0));
+      const mala = Math.max(0, 100 - buena - atencion);
+      const fechaParam = params.get('fecha');
+
+      const content = document.getElementById('reportContent');
+
+      // Si alguien llega aquí sin datos (por ejemplo, abriendo el link
+      // directo sin haber escaneado un QR real), se explica qué es esto
+      // en vez de mostrar un reporte vacío/confuso con puros ceros.
+      if (!params.has('buena') && !params.has('atencion')) {
+        content.innerHTML = `
+          <p class="report-empty">
+            Esta página muestra el resumen de una sesión de ErgoAI —
+            llegaste aquí sin datos de sesión (¿abriste el link directo,
+            en vez de escanear el código QR?).<br><br>
+            <a href="index.html" style="color: var(--teal);">Ir al panel de control de ErgoAI →</a>
+          </p>`;
+        return;
+      }
+
+      const fecha = fechaParam ? new Date(fechaParam) : new Date();
+      const fechaTexto = fecha.toLocaleDateString('es', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+      // Mismo criterio de mensaje que el resumen dentro de la app
+      // (showSessionSummaryIfAny en app.js) — repetido aquí a propósito
+      // para que esta página funcione sola, sin depender de app.js.
+      let mensaje;
+      if (mala >= 40) {
+        mensaje = `Pasaste ${mala}% de esta sesión en mala postura. Si se vuelve un hábito diario, con el tiempo puede causar dolor de espalda y cuello, dolores de cabeza tensionales y menos concentración. La buena noticia: corregirlo a tiempo, como hoy, evita que se vuelva un problema serio.`;
+      } else if (atencion + mala >= 40) {
+        mensaje = `Vas bien, pero ${atencion + mala}% del tiempo estuviste en postura dudosa o mala. Un poco más de atención a enderezar hombros y cabeza puede hacer la diferencia antes de que se vuelva una molestia real.`;
+      } else {
+        mensaje = `Mantuviste buena postura la mayor parte de la sesión (${buena}%). Seguir así ayuda a evitar dolor de espalda, cuello y cabeza a largo plazo — ¡sigue practicando!`;
+      }
+
+      function bar(label, pct, cls) {
+        return `
+          <div class="report-bar-row">
+            <span class="report-bar-label">${label}</span>
+            <span class="report-bar-track"><span class="report-bar-fill ${cls}" style="width:${pct}%"></span></span>
+            <span class="report-bar-pct">${pct}%</span>
+          </div>`;
+      }
+
+      function escapeHtml(s) {
+        const div = document.createElement('div');
+        div.textContent = s;
+        return div.innerHTML;
+      }
+
+      const saludo = nombre ? `¡Buen trabajo, ${escapeHtml(nombre)}!` : '¡Buen trabajo!';
+
+      content.innerHTML = `
+        <p class="report-eyebrow">Resumen de sesión</p>
+        <h2 class="report-title">${saludo}</h2>
+        <p class="report-date">${fechaTexto}</p>
+        <div class="report-bars">
+          ${bar('Buena', buena, 'good')}
+          ${bar('Atención', atencion, 'attention')}
+          ${bar('Mala', mala, 'bad')}
+        </div>
+        <p class="report-message">${escapeHtml(mensaje)}</p>
+        <div class="report-actions">
+          <button type="button" class="btn-connect" id="printBtn">🖨️ Guardar como PDF</button>
+          <a href="index.html" class="btn-change-ip" style="text-decoration:none; display:inline-flex; align-items:center;">Ir a ErgoAI</a>
+        </div>
+        <p class="report-footer">Generado por ErgoAI — Proyecto Kesta, GHS. Datos de una sola sesión, guardados solo en el navegador de origen.</p>
+      `;
+
+      document.getElementById('printBtn').addEventListener('click', () => window.print());
+    })();
+  </script>
+</body>
+</html>

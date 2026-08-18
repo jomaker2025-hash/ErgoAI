@@ -63,6 +63,8 @@
   const sessionSummaryBars = document.getElementById('sessionSummaryBars');
   const sessionSummaryMessage = document.getElementById('sessionSummaryMessage');
   const sessionSummaryCloseBtn = document.getElementById('sessionSummaryCloseBtn');
+  const sessionSummaryQrWrap = document.getElementById('sessionSummaryQrWrap');
+  const sessionSummaryQr = document.getElementById('sessionSummaryQr');
 
   // ---------- Kesta 4: notificaciones, historial, modo presentación ----------
   const settingsBtn = document.getElementById('settingsBtn');
@@ -344,6 +346,15 @@
   const DEBOUNCE_FRAMES = 8;
 
   let pose = null;
+  // Arreglo (Kesta 22): guarda la promesa de pose.initialize() (ver
+  // initPoseIfNeeded) para que startPoseProcessing() la espere antes de
+  // mandar el primer cuadro. Sin esto, si alguien conecta la cámara MUY
+  // rápido (justo lo que Kesta 20 quería facilitar), pose.send() llama a
+  // su PROPIO initialize() por dentro mientras el de la precarga TODAVÍA
+  // no terminaba — dos inicializaciones a la vez corrompían el estado
+  // interno de MediaPipe ("Cannot read properties of undefined"),
+  // encontrado probando antes de publicar.
+  let poseInitPromise = null;
   let poseLoopRunning = false; // bucle propio que le manda cuadros a la IA (ver startPoseProcessing)
   let poseFrameBusy = false; // evita mandar un cuadro nuevo antes de que la IA termine el anterior
   let previewLoopRunning = false;
@@ -565,6 +576,62 @@
     sessionSummaryMessage.textContent = mensaje;
 
     sessionSummaryOverlay.hidden = false;
+
+    // Kesta 22: el código QR es decorativo/extra — si algo falla al
+    // generarlo (sin internet la primera vez que hace falta bajar la
+    // librería, etc.), el resumen de arriba ya se mostró bien igual, así
+    // que esto nunca debe poder tumbar nada de lo anterior.
+    try {
+      renderSummaryQr(name, goodPct, attentionPct, badPct);
+    } catch (err) {
+      console.warn('ErgoAI: no se pudo generar el código QR del resumen.', err);
+      if (sessionSummaryQrWrap) sessionSummaryQrWrap.hidden = true;
+    }
+  }
+
+  // ---------- QR del reporte (Kesta 22) ----------
+  // La librería (vendor/qrcode.js) NO se carga de entrada con la
+  // página — solo hace falta la primera vez que alguien de verdad
+  // desconecta la cámara y ve el resumen, así que se pide en ese
+  // momento (no antes) y una sola vez.
+  let qrLibPromise = null;
+  function ensureQrLib() {
+    if (typeof window.qrcode !== 'undefined') return Promise.resolve();
+    if (qrLibPromise) return qrLibPromise;
+    qrLibPromise = new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'vendor/qrcode.js';
+      s.onload = () => resolve();
+      s.onerror = () => reject(new Error('no se pudo descargar vendor/qrcode.js'));
+      document.body.appendChild(s);
+    });
+    return qrLibPromise;
+  }
+
+  function renderSummaryQr(name, goodPct, attentionPct, badPct) {
+    if (!sessionSummaryQrWrap || !sessionSummaryQr) return;
+    sessionSummaryQrWrap.hidden = true; // mientras carga, mejor escondido que a medias
+
+    ensureQrLib().then(() => {
+      // El link lleva TODOS los datos de la sesión en la URL misma —
+      // resumen.html los lee y arma el reporte ahí, sin servidor de
+      // por medio (ver la nota completa en resumen.html).
+      const url = new URL('resumen.html', location.href);
+      url.searchParams.set('buena', String(goodPct));
+      url.searchParams.set('atencion', String(attentionPct));
+      url.searchParams.set('mala', String(badPct));
+      if (name) url.searchParams.set('nombre', name);
+      url.searchParams.set('fecha', new Date().toISOString());
+
+      const qr = window.qrcode(0, 'M'); // 0 = que la librería elija el tamaño según cuánto texto lleva
+      qr.addData(url.toString());
+      qr.make();
+      sessionSummaryQr.innerHTML = qr.createSvgTag(5, 2);
+      sessionSummaryQrWrap.hidden = false;
+    }).catch((err) => {
+      console.warn('ErgoAI: no se pudo mostrar el código QR del resumen.', err);
+      sessionSummaryQrWrap.hidden = true;
+    });
   }
 
   if (sessionSummaryCloseBtn) {
@@ -670,11 +737,17 @@
     // paga mientras ve la pantalla de carga, no cuando ya está
     // esperando ver su cámara.
     if (typeof pose.initialize === 'function') {
-      pose.initialize().catch(() => {
-        // Si falla aquí (sin internet, CDN caído), no pasa nada todavía
-        // — se vuelve a intentar solo al conectar la cámara de verdad,
-        // y AHÍ sí se avisa si sigue sin funcionar.
+      // Nota: este .catch() "atrapa" el error (no lo vuelve a lanzar) a
+      // propósito — así poseInitPromise siempre queda resuelta (nunca
+      // rechazada sin que nadie la escuche), y quien la espera más abajo
+      // (startPoseProcessing) solo necesita saber que YA TERMINÓ de
+      // intentarlo, no si salió bien. pose = null es la señal real de
+      // que falló: startPoseProcessing ya revisa "if (pose)" de todos
+      // modos, y onCameraConnected() vuelve a intentar initPoseIfNeeded()
+      // (esta vez sin silencioso=true, para sí avisar si sigue fallando).
+      poseInitPromise = pose.initialize().catch(() => {
         pose = null;
+        poseInitPromise = null;
       });
     }
   }
@@ -705,7 +778,22 @@
       if (!poseFrameBusy && pose && cameraConnected && webcamVideo.readyState >= 2) {
         poseFrameBusy = true;
         try {
-          await pose.send({ image: webcamVideo });
+          // Arreglo (Kesta 22): si la precarga de Kesta 20 todavía no
+          // terminó (alguien conectó la cámara muy rápido), espera aquí
+          // antes del primer pose.send() — send() también llama a
+          // initialize() por dentro, y hacerlo dos veces a la vez
+          // corrompía el estado interno de MediaPipe. Una vez resuelta,
+          // seguir esperando esta misma promesa ya resuelta es
+          // prácticamente gratis, así que no hace falta "acordarse" de
+          // dejar de esperarla.
+          if (poseInitPromise) await poseInitPromise;
+          // pose pudo fallar y quedar en null mientras esperábamos arriba
+          // — si pasó eso, no hay nada que mandar este cuadro (¡pero
+          // OJO! nunca un "return" aquí adentro: eso saltaría el
+          // "poseFrameBusy = false" y el "requestAnimationFrame(loop)"
+          // de más abajo, y el bucle entero se quedaría trabado para
+          // siempre).
+          if (pose) await pose.send({ image: webcamVideo });
         } catch (err) {
           // Un cuadro fallido ocasional no debe detener el bucle.
         }

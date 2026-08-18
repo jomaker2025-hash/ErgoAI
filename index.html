@@ -243,7 +243,7 @@
 
     <footer class="footer">
       <p>ErgoAI © 2026 — Proyecto Kesta GHS</p>
-      <p class="version-tag">Kesta 21 · resumen de sesión con tu nombre</p>
+      <p class="version-tag">Kesta 22 · QR con tu reporte para llevar</p>
     </footer>
   </div>
 
@@ -268,6 +268,18 @@
       <h2 class="session-summary-title" id="sessionSummaryTitle">¡Buen trabajo!</h2>
       <div class="session-summary-bars" id="sessionSummaryBars"></div>
       <p class="session-summary-message" id="sessionSummaryMessage"></p>
+
+      <!-- Código QR (Kesta 22): un link a resumen.html con los datos de
+           ESTA sesión en la URL — escanéalo con tu celular para
+           llevarte un documento bonito, imprimible/PDF, de tu resumen.
+           No depende de ningún servidor: todo se arma en el navegador
+           de quien escanea. Oculto hasta que de verdad haya un QR que
+           mostrar (ver renderSummaryQr en app.js). -->
+      <div class="session-summary-qr-wrap" id="sessionSummaryQrWrap" hidden>
+        <p class="session-summary-qr-caption">📱 Escanéalo para llevarte tu reporte</p>
+        <div class="session-summary-qr" id="sessionSummaryQr"></div>
+      </div>
+
       <button type="button" class="btn-connect" id="sessionSummaryCloseBtn">Entendido</button>
     </div>
   </div>

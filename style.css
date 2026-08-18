@@ -1665,6 +1665,36 @@ body {
   margin-bottom: 24px;
 }
 
+/* ---------- Código QR del reporte (Kesta 22) ---------- */
+.session-summary-qr-wrap {
+  margin-bottom: 24px;
+  padding: 16px;
+  background: var(--bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-sm);
+}
+
+.session-summary-qr-caption {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+}
+
+.session-summary-qr {
+  display: flex;
+  justify-content: center;
+}
+
+.session-summary-qr svg {
+  /* El QR trae su propio tamaño en píxeles (ver renderSummaryQr en
+     app.js) — esto solo evita que se vea gigante en pantallas chicas. */
+  max-width: 100%;
+  height: auto;
+  background: #fff; /* el QR necesita fondo claro sí o sí para poder leerse */
+  border-radius: 6px;
+  padding: 8px;
+}
+
 @media (max-width: 480px) {
   .session-summary-card {
     padding: 24px 20px;
