@@ -389,15 +389,15 @@
     webcamConnectBtn.disabled = true;
     webcamConnectBtn.textContent = 'Pidiendo permiso…';
     try {
+      // Arreglo (Kesta 20): antes se pedía la cámara con una resolución
+      // "ideal" (480×360, Kesta 17) para que MediaPipe procesara menos
+      // datos. Se quita: en algunas cámaras, pedir una medida que no es
+      // su nativa hace que tarden más en arrancar (justo el "atraso al
+      // activar la cámara" reportado) — y modelComplexity en "Lite" (ver
+      // initPoseIfNeeded) ya reduce la carga de la IA sin tocar la
+      // cámara para nada.
       webcamStream = await navigator.mediaDevices.getUserMedia({
-        // Arreglo (Kesta 17, rendimiento): sin esto, algunas cámaras le
-        // entregan a MediaPipe cuadros de 720p (o más) sin necesidad —
-        // el modelo de postura no necesita tanto detalle, y procesar
-        // cuadros más grandes cuesta más CPU/GPU en cada uno, para
-        // siempre mientras la cámara esté conectada. "ideal" (no
-        // "exact"/"min") para que la cámara elija lo más parecido que
-        // pueda, sin fallar en cámaras que no soportan justo esta medida.
-        video: { facingMode: 'user', width: { ideal: 480 }, height: { ideal: 360 } },
+        video: { facingMode: 'user' },
         audio: false,
       });
       webcamVideo.srcObject = webcamStream;
@@ -513,10 +513,14 @@
     syncHardwareState(confirmedState);
   }
 
-  function initPoseIfNeeded() {
+  // silencioso = true cuando es la "precarga" temprana (ver más abajo) —
+  // ahí NO hay que asustar a nadie con un error si algo sale mal,
+  // porque de todos modos se vuelve a intentar cuando conectes la
+  // cámara de verdad.
+  function initPoseIfNeeded(silencioso = false) {
     if (pose) return;
     if (typeof Pose === 'undefined') {
-      showCameraError('No se pudo cargar el motor de IA (MediaPipe). Revisa tu conexión a internet y recarga la página.');
+      if (!silencioso) showCameraError('No se pudo cargar el motor de IA (MediaPipe). Revisa tu conexión a internet y recarga la página.');
       return;
     }
     pose = new Pose({
@@ -536,6 +540,24 @@
       minTrackingConfidence: 0.5,
     });
     pose.onResults(onPoseResults);
+
+    // Arreglo (Kesta 20): "activar cámara" se sentía pausado ~13
+    // segundos porque MediaPipe descarga y prepara su modelo de IA
+    // (varios MB) recién en ese momento — construir el objeto Pose
+    // arriba NO empieza esa descarga sola, solo initialize() lo hace de
+    // verdad (confirmado revisando pose.js). Si esto se llama temprano
+    // (ver más abajo, apenas carga la página), ya está listo para
+    // cuando la persona haga clic en "Activar cámara" — el costo se
+    // paga mientras ve la pantalla de carga, no cuando ya está
+    // esperando ver su cámara.
+    if (typeof pose.initialize === 'function') {
+      pose.initialize().catch(() => {
+        // Si falla aquí (sin internet, CDN caído), no pasa nada todavía
+        // — se vuelve a intentar solo al conectar la cámara de verdad,
+        // y AHÍ sí se avisa si sigue sin funcionar.
+        pose = null;
+      });
+    }
   }
 
   // Le manda cuadros de video a la IA, esperando a que termine de procesar
@@ -1257,4 +1279,20 @@
       else connectHardware();
     });
   }
+
+  // ============================================================
+  // 9. PRECARGA TEMPRANA DE LA IA (Kesta 20)
+  // ============================================================
+  // Arreglo: "activar cámara" se sentía pausado ~13 segundos porque
+  // MediaPipe descarga y prepara su modelo de IA (varios MB) recién en
+  // ese momento. Esto lo empieza YA, mientras se ve la pantalla de
+  // carga — para cuando hagas clic en "Activar cámara", puede que ya
+  // esté listo. Va AL FINAL del archivo a propósito: initPoseIfNeeded
+  // usa variables (como "pose") declaradas más arriba con let/const, y
+  // JavaScript no deja usarlas antes de que esa línea se ejecute — así
+  // que esta llamada tiene que ir después de TODO lo demás, no antes.
+  // Aun así, como es código normal (no espera a nada), corre en cuanto
+  // el navegador termina de leer este archivo — mucho antes de que
+  // termine el 1.1s mínimo de la pantalla de carga.
+  initPoseIfNeeded(true);
 })();

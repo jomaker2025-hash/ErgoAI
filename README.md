@@ -109,7 +109,7 @@ python -m http.server 8000
 Y abre `http://localhost:8000` en tu navegador. La cámara solo funciona en `https://`
 o en `localhost` — es una regla de seguridad de los navegadores, no un error nuestro.
 
-## Rendimiento y confiabilidad (Kesta 17-18)
+## Rendimiento y confiabilidad (Kesta 17-20)
 
 El congelamiento de la computadora al activar la cámara (reportado sobre
 todo en la compu del colegio, con gráficos más modestos) llevó a dos
@@ -136,6 +136,18 @@ relacionados con lo decorativo, así que se quedaron):
   cambió.
 - Una función (`animateValue`) que ya no la llamaba nadie desde que se
   quitó la racha en Kesta 10.
+
+**Kesta 20 — "activar cámara" se sentía pausado ~13 segundos:** dos causas:
+- MediaPipe descarga y prepara su modelo de IA (varios MB) recién cuando
+  activas la cámara. Ahora eso empieza ANTES — apenas carga la página,
+  mientras ves la pantalla de carga — usando `pose.initialize()` (un
+  método pensado justo para esto). Si ya terminó para cuando das clic en
+  "Activar cámara", ya no hay espera; si no, sigue en el fondo, mucho
+  más avanzado que antes.
+- Se quitó el límite de resolución de cámara de Kesta 17 (480×360): en
+  algunas cámaras, pedir una medida que no es la nativa las hace tardar
+  más en arrancar. Ya no hacía falta de todos modos — `modelComplexity`
+  en "Lite" reduce la carga de la IA sin tocar la cámara.
 
 ## Hardware: alerta física (requerida en la feria)
 
