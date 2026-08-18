@@ -56,6 +56,14 @@
   const toastEl = document.getElementById('toast');
   const chartTooltip = document.getElementById('chartTooltip');
 
+  // ---------- Kesta 21: nombre opcional + resumen al desconectar ----------
+  const userNameInput = document.getElementById('userNameInput');
+  const sessionSummaryOverlay = document.getElementById('sessionSummaryOverlay');
+  const sessionSummaryTitle = document.getElementById('sessionSummaryTitle');
+  const sessionSummaryBars = document.getElementById('sessionSummaryBars');
+  const sessionSummaryMessage = document.getElementById('sessionSummaryMessage');
+  const sessionSummaryCloseBtn = document.getElementById('sessionSummaryCloseBtn');
+
   // ---------- Kesta 4: notificaciones, historial, modo presentación ----------
   const settingsBtn = document.getElementById('settingsBtn');
   const settingsPanel = document.getElementById('settingsPanel');
@@ -216,6 +224,13 @@
     trackBadPostureAlert(state);
     syncHardwareState(state); // respaldo cada segundo — el cambio real ya se manda al confirmarse
     recordSessionPoint(state);
+
+    // Kesta 21: aparte del historial del DÍA (arriba) y de la ventana
+    // de 3 minutos (recordSessionPoint), esto cuenta TODA la conexión
+    // actual — lo que usa el resumen al desconectar.
+    if (state === 'good') sessionGoodSeconds += 1;
+    else if (state === 'attention') sessionAttentionSeconds += 1;
+    else sessionBadSeconds += 1;
   }
 
   // Kesta 10: se quitó el módulo "Tu progreso" (racha de días) — el anillo,
@@ -357,6 +372,15 @@
     calibrateStatus.textContent = 'Calibrada ✓ — usando tu propia referencia de buena postura';
   }
 
+  // Kesta 21: si ya pusiste tu nombre antes en este navegador, no hay
+  // que volver a escribirlo — mismo criterio que la calibración de
+  // arriba. Se queda guardado local, nunca se manda a ningún servidor.
+  const USER_NAME_KEY = 'ergoai_user_name';
+  if (userNameInput) {
+    const savedName = safeGetItem(USER_NAME_KEY);
+    if (savedName) userNameInput.value = savedName;
+  }
+
   function showCameraError(msg) {
     cameraError.textContent = msg;
     cameraError.hidden = false;
@@ -425,6 +449,16 @@
   changeIpBtn.addEventListener('click', disconnectCamera);
 
   function disconnectCamera() {
+    // Arreglo (Kesta 21): el resumen se calcula y se muestra PRIMERO,
+    // protegido con try/catch — si algo saliera mal ahí, NO debe impedir
+    // que la cámara se libere y la placa se apague (eso es lo que de
+    // verdad importa; el resumen es un extra, no algo crítico).
+    try {
+      showSessionSummaryIfAny();
+    } catch (err) {
+      console.warn('ErgoAI: no se pudo mostrar el resumen de sesión.', err);
+    }
+
     if (webcamStream) {
       webcamStream.getTracks().forEach((t) => t.stop());
       webcamStream = null;
@@ -464,8 +498,85 @@
     sessionSamples = [];
     renderSessionStrip();
     sessionModule.hidden = true;
+    sessionGoodSeconds = 0;
+    sessionAttentionSeconds = 0;
+    sessionBadSeconds = 0;
 
     sendHwCommand('OFF');
+  }
+
+  // Kesta 21: recapitula ESTA conexión (como el resumen de una app de
+  // reloj inteligente al terminar un ejercicio) — % de buena/dudosa/mala
+  // postura y un mensaje constructivo, no alarmista. Se llama desde
+  // disconnectCamera() ANTES de que los contadores se reinicien.
+  function showSessionSummaryIfAny() {
+    if (!sessionSummaryOverlay) return;
+    const total = sessionGoodSeconds + sessionAttentionSeconds + sessionBadSeconds;
+    // Sesión muy corta (conectaste y desconectaste casi de inmediato) —
+    // no hay suficiente dato real para un resumen que valga la pena.
+    if (total < 5) return;
+
+    const goodPct = Math.round((sessionGoodSeconds / total) * 100);
+    const attentionPct = Math.round((sessionAttentionSeconds / total) * 100);
+    const badPct = Math.max(0, 100 - goodPct - attentionPct);
+
+    const name = userNameInput ? userNameInput.value.trim() : '';
+    sessionSummaryTitle.textContent = name ? `¡Buen trabajo, ${name}!` : '¡Buen trabajo!';
+
+    sessionSummaryBars.innerHTML = '';
+    [
+      { label: 'Buena', pct: goodPct, cls: 'good' },
+      { label: 'Atención', pct: attentionPct, cls: 'attention' },
+      { label: 'Mala', pct: badPct, cls: 'bad' },
+    ].forEach((row) => {
+      const rowEl = document.createElement('div');
+      rowEl.className = 'session-summary-bar-row';
+
+      const labelEl = document.createElement('span');
+      labelEl.className = 'session-summary-bar-label';
+      labelEl.textContent = row.label;
+
+      const track = document.createElement('span');
+      track.className = 'session-summary-bar-track';
+      const fill = document.createElement('span');
+      fill.className = `session-summary-bar-fill ${row.cls}`;
+      fill.style.width = `${row.pct}%`;
+      track.appendChild(fill);
+
+      const pctEl = document.createElement('span');
+      pctEl.className = 'session-summary-bar-pct';
+      pctEl.textContent = `${row.pct}%`;
+
+      rowEl.append(labelEl, track, pctEl);
+      sessionSummaryBars.appendChild(rowEl);
+    });
+
+    // Mensaje asertivo: informa la consecuencia real sin ser alarmista,
+    // y siempre termina en algo que SÍ puedes hacer — mismo espíritu que
+    // la sección educativa del panel (#infoModule).
+    let mensaje;
+    if (badPct >= 40) {
+      mensaje = `Pasaste ${badPct}% de esta sesión en mala postura. Si se vuelve un hábito diario, con el tiempo puede causar dolor de espalda y cuello, dolores de cabeza tensionales y menos concentración. La buena noticia: corregirlo a tiempo, como hoy, evita que se vuelva un problema serio.`;
+    } else if (attentionPct + badPct >= 40) {
+      mensaje = `Vas bien, pero ${attentionPct + badPct}% del tiempo estuviste en postura dudosa o mala. Un poco más de atención a enderezar hombros y cabeza puede hacer la diferencia antes de que se vuelva una molestia real.`;
+    } else {
+      mensaje = `Mantuviste buena postura la mayor parte de la sesión (${goodPct}%). Seguir así ayuda a evitar dolor de espalda, cuello y cabeza a largo plazo — ¡sigue practicando!`;
+    }
+    sessionSummaryMessage.textContent = mensaje;
+
+    sessionSummaryOverlay.hidden = false;
+  }
+
+  if (sessionSummaryCloseBtn) {
+    sessionSummaryCloseBtn.addEventListener('click', () => {
+      sessionSummaryOverlay.hidden = true;
+    });
+  }
+  if (sessionSummaryOverlay) {
+    // Clic en el fondo oscuro (fuera de la tarjeta) también cierra.
+    sessionSummaryOverlay.addEventListener('click', (e) => {
+      if (e.target === sessionSummaryOverlay) sessionSummaryOverlay.hidden = true;
+    });
   }
 
   function onCameraConnected() {
@@ -477,6 +588,14 @@
     sessionModule.hidden = false;
     sessionSamples = [];
     renderSessionStrip();
+
+    // Kesta 21: contadores de la sesión completa, limpios para esta
+    // nueva conexión (ver recordSample y showSessionSummaryIfAny). Y si
+    // pusiste un nombre, se guarda para la próxima vez que abras ErgoAI.
+    sessionGoodSeconds = 0;
+    sessionAttentionSeconds = 0;
+    sessionBadSeconds = 0;
+    if (userNameInput) safeSetItem(USER_NAME_KEY, userNameInput.value.trim());
 
     if (!secondTickInterval) {
       secondTickInterval = setInterval(() => {
@@ -1059,6 +1178,15 @@
   const MAX_SESSION_TICKS = 90; // 90 barras × 2s = 3 minutos visibles
   let sessionSamples = [];
   let sessionTickCounter = 0;
+
+  // Kesta 21: contadores APARTE, de TODA la conexión (sessionSamples de
+  // arriba es solo una ventana de los últimos 3 minutos — no sirve para
+  // un resumen de sesiones más largas). Se reinician al conectar la
+  // cámara (onCameraConnected) y se leen al desconectar, antes de
+  // reiniciarlos de nuevo (ver showSessionSummaryIfAny).
+  let sessionGoodSeconds = 0;
+  let sessionAttentionSeconds = 0;
+  let sessionBadSeconds = 0;
 
   // Se llama una vez por segundo, desde recordSample.
   function recordSessionPoint(state) {

@@ -104,6 +104,14 @@
         <p class="privacy-note">🔒 Tu video se analiza en el momento, dentro de tu propio navegador — nunca se sube, guarda ni envía a ningún servidor. Ni nosotros ni nadie más lo puede ver.</p>
       </div>
 
+      <!-- Nombre opcional: solo para personalizar el saludo y el resumen
+           al final de la sesión (ver #sessionSummaryOverlay) — nunca se
+           manda a ningún servidor, se queda en este navegador. -->
+      <div class="user-name-row" id="userNameRow">
+        <label for="userNameInput" class="user-name-label">Tu nombre (opcional):</label>
+        <input type="text" id="userNameInput" class="user-name-input" placeholder="ej. Johel" maxlength="40" autocomplete="given-name" />
+      </div>
+
       <div class="camera-source-panel" id="webcamPanel">
         <button type="button" class="btn-connect" id="webcamConnectBtn">Activar cámara</button>
       </div>
@@ -235,7 +243,7 @@
 
     <footer class="footer">
       <p>ErgoAI © 2026 — Proyecto Kesta GHS</p>
-      <p class="version-tag">Kesta 20 · activar cámara ya no se siente pausado</p>
+      <p class="version-tag">Kesta 21 · resumen de sesión con tu nombre</p>
     </footer>
   </div>
 
@@ -247,6 +255,22 @@
 
   <!-- Tooltip flotante compartido por las gráficas (historial, semana, sesión) -->
   <div class="chart-tooltip" id="chartTooltip" hidden></div>
+
+  <!-- ======================= RESUMEN DE SESIÓN (Kesta 21) =======================
+       Aparece al desconectar la cámara (como el resumen de una app de
+       reloj inteligente al terminar un ejercicio) — usa datos 100%
+       reales de ESTA conexión, nunca inventados. Puramente informativo:
+       no bloquea ni afecta la cámara/IA/placa, que ya se desconectaron
+       para cuando esto aparece. -->
+  <div class="session-summary-overlay" id="sessionSummaryOverlay" hidden>
+    <div class="session-summary-card" role="dialog" aria-modal="true" aria-labelledby="sessionSummaryTitle">
+      <p class="module-eyebrow">Resumen de tu sesión</p>
+      <h2 class="session-summary-title" id="sessionSummaryTitle">¡Buen trabajo!</h2>
+      <div class="session-summary-bars" id="sessionSummaryBars"></div>
+      <p class="session-summary-message" id="sessionSummaryMessage"></p>
+      <button type="button" class="btn-connect" id="sessionSummaryCloseBtn">Entendido</button>
+    </div>
+  </div>
 
   <!-- ============================================================
        BOTÓN DE VISTA PREVIA (sin cámara conectada)

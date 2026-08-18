@@ -39,6 +39,11 @@ IdeaBoard) — **requerida para la demo de la feria**: luz verde = buena postura
 - 📈 **Sesión en vivo**: línea de tiempo en tiempo real de los últimos minutos de tu
   conexión — pensada para que aunque acabes de conectarte (como en la feria) veas datos
   genuinos, sin necesitar días de historial acumulado.
+- 📝 **Resumen de sesión** (Kesta 21): pon tu nombre (opcional) al activar la cámara, y
+  al desconectarla verás un resumen — como el de una app de reloj inteligente al
+  terminar un ejercicio — con el % real de tu sesión en cada estado y un mensaje
+  constructivo sobre qué podría pasar si la mala postura se vuelve un hábito, sin ser
+  alarmista. Datos 100% de ESA conexión, nada inventado.
 - 📊 **Historial**: gráfica de los últimos 7 días, con tooltips propios y vista en tabla —
   datos reales, guardados en `localStorage`.
 - 🔔 **Alertas**: sonido + notificación cuando llevas tiempo prolongado en mala
