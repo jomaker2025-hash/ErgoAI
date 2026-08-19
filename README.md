@@ -16,7 +16,7 @@ Artificial de detección de pose (**MediaPipe Pose**, de Google) — corriendo c
 del navegador, sin enviar video a ningún servidor — para leer 3 señales de tu cuerpo
 (inclinación de hombros, inclinación de cadera y qué tan alta está tu cabeza) y clasificar
 tu postura en **3 estados reales: buena, dudosa (atención) o mala**. Te avisa en pantalla,
-con sonido, con una placa física (LED + buzzer), y guarda tu historial de los últimos días.
+con sonido, con una placa física (LED + buzzer), y te muestra un resumen al final de tu sesión.
 
 Además, se conecta por **cable USB** a una placa con un LED RGB y un buzzer (una
 IdeaBoard) — **requerida para la demo de la feria**: luz verde = buena postura, luz
@@ -38,7 +38,7 @@ IdeaBoard) — **requerida para la demo de la feria**: luz verde = buena postura
   mismos 3 que ve reflejados la placa física.
 - 📈 **Sesión en vivo**: línea de tiempo en tiempo real de los últimos minutos de tu
   conexión — pensada para que aunque acabes de conectarte (como en la feria) veas datos
-  genuinos, sin necesitar días de historial acumulado.
+  genuinos de inmediato.
 - 📝 **Resumen de sesión** (Kesta 21): pon tu nombre (opcional) al activar la cámara, y
   al desconectarla verás un resumen — como el de una app de reloj inteligente al
   terminar un ejercicio — con el % real de tu sesión en cada estado y un mensaje
@@ -54,8 +54,6 @@ IdeaBoard) — **requerida para la demo de la feria**: luz verde = buena postura
   idiomas, sin que nosotros hayamos traducido nada a mano. Necesita internet para
   funcionar (es un servicio externo); si no hay internet, el selector simplemente no
   aparece y el resto de ErgoAI sigue funcionando normal, en español.
-- 📊 **Historial**: gráfica de los últimos 7 días, con tooltips propios y vista en tabla —
-  datos reales, guardados en `localStorage`.
 - 🔔 **Alertas**: sonido + notificación cuando llevas tiempo prolongado en mala
   postura, y recordatorios de pausas activas cada 30 minutos.
 - 🔌 **Alerta física (requerida en la feria)**: LED + buzzer en una IdeaBoard aparte,
@@ -90,7 +88,7 @@ IdeaBoard) — **requerida para la demo de la feria**: luz verde = buena postura
 > más que bonito**. Lo que sí se quedó, porque son arreglos reales a la
 > cámara/IA/placa (no decoración): la detección resistente a que una mano
 > tape la cara, el modelo de IA más liviano, el límite de resolución de
-> cámara, y que el historial/sesión en vivo no se redibujen sin necesidad.
+> cámara, y que la sesión en vivo no se redibuje sin necesidad.
 
 ## Estructura del proyecto
 
@@ -98,7 +96,7 @@ IdeaBoard) — **requerida para la demo de la feria**: luz verde = buena postura
 ErgoAI/
 ├── index.html                # Estructura de la página
 ├── style.css                  # Todo el diseño visual
-├── app.js                     # Lógica: IA, cámara, historial, notificaciones, buzzer
+├── app.js                     # Lógica: IA, cámara, sesión, notificaciones, buzzer
 ├── resumen.html                # Reporte de sesión (Kesta 22) — standalone, sin cámara/IA
 ├── vendor/
 │   └── qrcode.js                  # Generador de QR (autohospedado, se carga solo al hacer falta)
@@ -169,6 +167,13 @@ relacionados con lo decorativo, así que se quedaron):
   más en arrancar. Ya no hacía falta de todos modos — `modelComplexity`
   en "Lite" reduce la carga de la IA sin tocar la cámara.
 
+**Kesta 24 — se quitó el módulo de historial semanal** ("Tus últimos 7
+días", la gráfica de barras): a petición explícita, para simplificar el
+panel. El resumen de sesión (Kesta 21) ya cubre la parte de "ver tu
+patrón real" sin necesitar días de datos acumulados. Se quitó por
+completo: la sección del panel, el guardado diario en `localStorage`
+(`ensureToday`/`recordSample` ya no lo hacen), y todo el CSS asociado.
+
 ## Hardware: alerta física (requerida en la feria)
 
 `hardware/ideaboard_buzzer/code.py` es el programa que corre **dentro de la placa**
@@ -189,7 +194,7 @@ Para usarlo:
 
 Esto usa la **Web Serial API**, disponible solo en Chrome/Edge de computadora (no en
 celular, no en Firefox/Safari) — por eso el modo escritorio en Python (abajo) existe
-como alternativa en esos casos. El resto de ErgoAI (cámara, IA, historial)
+como alternativa en esos casos. El resto de ErgoAI (cámara, IA, sesión en vivo)
 funciona completo incluso sin la placa conectada.
 
 > **En una computadora nueva** (donde nunca se ha conectado esta placa), si la lista

@@ -73,22 +73,10 @@
   const breaksToggle = document.getElementById('breaksToggle');
   const presentationBtn = document.getElementById('presentationBtn');
   const exitPresentationBtn = document.getElementById('exitPresentationBtn');
-  const barChart = document.getElementById('barChart');
-  const historyTableToggle = document.getElementById('historyTableToggle');
-  const historyTable = document.getElementById('historyTable');
-  const historyTableBody = document.getElementById('historyTableBody');
 
   // ============================================================
   // Utilidades pequeñas y reutilizables
   // ============================================================
-  function todayKey(date = new Date()) {
-    // "2026-08-05" — usamos la fecha LOCAL, no UTC, para que el día
-    // cambie a medianoche de tu zona horaria, no la de Greenwich.
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, '0');
-    const d = String(date.getDate()).padStart(2, '0');
-    return `${y}-${m}-${d}`;
-  }
 
   // Guarda/lee de localStorage sin romper la página si el navegador lo
   // bloquea (pasa en modo privado de algunos navegadores, o con ciertas
@@ -177,72 +165,24 @@
     setTimeout(() => {
       splash.classList.add('splash--hide');
       app.classList.add('app--visible');
-      renderFromStorage(); // pinta los datos guardados (reales) apenas aparece
     }, wait);
   }
   if (document.readyState === 'complete') reveal();
   else window.addEventListener('load', reveal);
 
-  // ============================================================
-  // 2. HISTORIAL REAL (últimos 7 días, guardado en localStorage)
-  // ============================================================
-  const STORAGE_KEY = 'ergoai_history_v1';
-
-  function loadHistory() {
-    try {
-      return JSON.parse(safeGetItem(STORAGE_KEY)) || {};
-    } catch {
-      return {};
-    }
-  }
-  function saveHistory(hist) {
-    safeSetItem(STORAGE_KEY, JSON.stringify(hist));
-  }
-
-  let history = loadHistory();
-
-  function ensureToday() {
-    const key = todayKey();
-    if (!history[key]) {
-      history[key] = { goodSeconds: 0, attentionSeconds: 0, totalSeconds: 0 };
-    } else if (history[key].attentionSeconds === undefined) {
-      history[key].attentionSeconds = 0; // datos guardados antes de que existiera este campo
-    }
-    return history[key];
-  }
-
   // Se llama una vez por segundo mientras la cámara está conectada.
   // "state" es 'good' | 'attention' | 'bad'.
   function recordSample(state) {
-    const day = ensureToday();
-    day.totalSeconds += 1;
-    if (state === 'good') {
-      day.goodSeconds += 1;
-    } else if (state === 'attention') {
-      day.attentionSeconds += 1;
-    }
-    saveHistory(history);
-    renderFromStorage();
     trackBadPostureAlert(state);
     syncHardwareState(state); // respaldo cada segundo — el cambio real ya se manda al confirmarse
     recordSessionPoint(state);
 
-    // Kesta 21: aparte del historial del DÍA (arriba) y de la ventana
-    // de 3 minutos (recordSessionPoint), esto cuenta TODA la conexión
-    // actual — lo que usa el resumen al desconectar.
+    // Contadores de TODA la conexión actual (aparte de la ventana de 3
+    // minutos de recordSessionPoint) — lo que usa el resumen al
+    // desconectar (Kesta 21).
     if (state === 'good') sessionGoodSeconds += 1;
     else if (state === 'attention') sessionAttentionSeconds += 1;
     else sessionBadSeconds += 1;
-  }
-
-  // Kesta 10: se quitó el módulo "Tu progreso" (racha de días) — el anillo,
-  // los días de la semana y los récords se volvían a dibujar desde cero
-  // cada segundo mientras la cámara estaba conectada, y eso reiniciaba sus
-  // animaciones de entrada una y otra vez (se veía como un tembleque
-  // constante). El historial de los últimos 7 días (abajo) sigue 100%
-  // real, usa los mismos datos guardados, y ya no tiene ese problema.
-  function renderFromStorage() {
-    renderHistoryChart();
   }
 
   // ============================================================
@@ -287,7 +227,6 @@
     });
   }
   attachCursorGlow(statusCard);
-  bindTooltip(barChart);
   bindTooltip(sessionStrip);
 
   // ============================================================
@@ -1161,102 +1100,7 @@
   });
 
   // ============================================================
-  // 7. HISTORIAL CON GRÁFICA DE BARRAS (últimos 7 días reales)
-  // ============================================================
-  function last7Days() {
-    const days = [];
-    const cursor = new Date();
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date(cursor);
-      d.setDate(cursor.getDate() - i);
-      days.push(d);
-    }
-    return days;
-  }
-
-  // Arreglo (Kesta 17): esto se llama UNA VEZ POR SEGUNDO mientras la
-  // cámara está conectada (viene de recordSample). Antes reconstruía las
-  // 7 barras Y las 7 filas de la tabla desde cero cada vez — con
-  // .bar-fill { transition: height ... }, eso significa que el navegador
-  // volvía a "animar" la barra de hoy CADA SEGUNDO (elemento nuevo, sin
-  // altura previa) — el mismo tipo de "tembleque" que ya habíamos
-  // identificado y quitado del módulo de racha en Kesta 10, solo que
-  // aquí seguía sin que nos diéramos cuenta. La solución es la misma:
-  // no volver a dibujar si los datos que se ven en pantalla no
-  // cambiaron de verdad.
-  let lastHistorySignature = null;
-
-  function renderHistoryChart() {
-    const dayNames = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
-    const shortNames = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
-    const days = last7Days();
-    const today = todayKey();
-
-    // "Firma" barata de lo que se vería en pantalla (7 días, cada uno
-    // como "clave:porcentaje") — si es idéntica a la última vez, no hay
-    // nada que redibujar (lo más común: pasó un segundo pero el %
-    // redondeado de hoy sigue igual).
-    const signature = days.map((d) => {
-      const key = todayKey(d);
-      const day = history[key];
-      const hasData = !!day && day.totalSeconds > 0;
-      const percent = hasData ? Math.round((day.goodSeconds / day.totalSeconds) * 100) : -1;
-      return `${key}:${percent}`;
-    }).join('|');
-    if (signature === lastHistorySignature) return;
-    lastHistorySignature = signature;
-
-    barChart.innerHTML = '';
-    historyTableBody.innerHTML = '';
-
-    days.forEach((d) => {
-      const key = todayKey(d);
-      const day = history[key];
-      const hasData = !!day && day.totalSeconds > 0;
-      const percent = hasData ? Math.round((day.goodSeconds / day.totalSeconds) * 100) : 0;
-      const label = shortNames[d.getDay()];
-      const fullName = dayNames[d.getDay()];
-      const isToday = key === today;
-
-      // --- barra ---
-      const col = document.createElement('div');
-      col.className = 'bar-col' + (isToday ? ' is-today' : '') + (hasData ? '' : ' no-data');
-      col.dataset.tooltip = hasData ? `${fullName}: ${percent}% en buena postura` : `${fullName}: sin datos`;
-
-      const value = document.createElement('span');
-      value.className = 'bar-value';
-      value.textContent = hasData ? `${percent}%` : '–';
-
-      const track = document.createElement('div');
-      track.className = 'bar-track';
-      const fill = document.createElement('div');
-      fill.className = 'bar-fill';
-      fill.style.height = hasData ? `${Math.max(percent, 3)}%` : '0%';
-      track.appendChild(fill);
-
-      const labelEl = document.createElement('span');
-      labelEl.className = 'bar-label';
-      labelEl.textContent = label;
-
-      col.append(value, track, labelEl);
-      barChart.appendChild(col);
-
-      // --- fila de la tabla (misma información, accesible) ---
-      const row = document.createElement('tr');
-      row.innerHTML = `<td>${fullName.charAt(0).toUpperCase() + fullName.slice(1)}${isToday ? ' (hoy)' : ''}</td><td>${hasData ? percent + '%' : 'Sin datos'}</td>`;
-      historyTableBody.appendChild(row);
-    });
-  }
-
-  historyTableToggle.addEventListener('click', () => {
-    const showingTable = !historyTable.hidden;
-    historyTable.hidden = showingTable;
-    barChart.hidden = !showingTable;
-    historyTableToggle.textContent = showingTable ? 'Ver como gráfica' : 'Ver como tabla';
-  });
-
-  // ============================================================
-  // 7b. SESIÓN EN VIVO (Kesta 8) — línea de tiempo de ESTA conexión,
+  // 7. SESIÓN EN VIVO (Kesta 8) — línea de tiempo de ESTA conexión,
   //    con datos reales, para que aunque acabes de conectar la
   //    cámara (como en la mesa de la feria) veas algo genuino
   //    pasando, sin necesitar días de historial acumulado. Vive solo
