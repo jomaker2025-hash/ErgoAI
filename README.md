@@ -49,6 +49,11 @@ IdeaBoard) — **requerida para la demo de la feria**: luz verde = buena postura
   lista para guardarse como PDF (botón "Guardar como PDF", usa la función nativa de
   imprimir del navegador). Sin servidor de por medio: los datos van en la URL misma, todo
   se arma en el navegador de quien escanea.
+- 🌐 **Cualquier idioma** (Kesta 23): el ícono 🌐 del encabezado abre el selector de
+  idioma (widget oficial de Google Translate) — traduce toda la página a cientos de
+  idiomas, sin que nosotros hayamos traducido nada a mano. Necesita internet para
+  funcionar (es un servicio externo); si no hay internet, el selector simplemente no
+  aparece y el resto de ErgoAI sigue funcionando normal, en español.
 - 📊 **Historial**: gráfica de los últimos 7 días, con tooltips propios y vista en tabla —
   datos reales, guardados en `localStorage`.
 - 🔔 **Alertas**: sonido + notificación cuando llevas tiempo prolongado en mala
@@ -97,6 +102,8 @@ ErgoAI/
 ├── resumen.html                # Reporte de sesión (Kesta 22) — standalone, sin cámara/IA
 ├── vendor/
 │   └── qrcode.js                  # Generador de QR (autohospedado, se carga solo al hacer falta)
+├── js/
+│   └── lang-loader.js             # Selector de idioma (Kesta 23) — se carga solo, después de todo
 ├── manifest.json              # Para poder "instalar" la página como app
 ├── assets/                    # Logo e íconos
 ├── hardware/

@@ -63,6 +63,19 @@
       </div>
 
       <div class="header-actions">
+        <!-- Selector de idioma (Kesta 23): widget OFICIAL de Google
+             Translate — traduce toda la página a cualquier idioma que
+             elijas, sin que nosotros tengamos que traducir nada a mano.
+             Se carga APARTE y DESPUÉS de lo importante (ver
+             js/lang-loader.js) — si no hay internet o el servicio de
+             Google no responde, esto simplemente no aparece y el resto
+             de ErgoAI (cámara, IA, placa) sigue funcionando en español,
+             sin ningún error. -->
+        <div class="lang-switch" id="langSwitch" title="Cambiar idioma / Change language">
+          <span class="lang-switch-icon" aria-hidden="true">🌐</span>
+          <div id="google_translate_element"></div>
+        </div>
+
         <!-- Notificaciones: alertas de mala postura + recordatorios de pausas -->
         <div class="settings-wrap">
           <button type="button" class="icon-btn" id="settingsBtn" title="Notificaciones" aria-expanded="false">🔔</button>
@@ -243,7 +256,7 @@
 
     <footer class="footer">
       <p>ErgoAI © 2026 — Proyecto Kesta GHS</p>
-      <p class="version-tag">Kesta 22 · QR con tu reporte para llevar</p>
+      <p class="version-tag">Kesta 23 · disponible en cualquier idioma</p>
     </footer>
   </div>
 
@@ -313,5 +326,10 @@
        causaba el "bugueo" al abrir. app.js ahora manda los cuadros con su
        propio bucle, sobre la única cámara que ya conectamos. -->
   <script src="app.js"></script>
+
+  <!-- Selector de idioma (Kesta 23): se pide DESPUÉS de que la página ya
+       cargó por completo — la cámara/IA/placa nunca esperan a esto. Ver
+       js/lang-loader.js para el porqué completo. -->
+  <script src="js/lang-loader.js"></script>
 </body>
 </html>

@@ -1700,3 +1700,68 @@ body {
     padding: 24px 20px;
   }
 }
+
+/* ============================================================
+   13. SELECTOR DE IDIOMA (Kesta 23) — widget de Google Translate
+   ============================================================ */
+.lang-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 40px;
+  padding: 0 12px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--card-border);
+  border-radius: 999px;
+  transition: border-color 0.2s ease;
+}
+
+.lang-switch:hover {
+  border-color: var(--teal);
+}
+
+.lang-switch-icon {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+/* Mientras el widget de Google no ha terminado de cargar (o si falla),
+   #google_translate_element está vacío — que no se vea como un hueco
+   raro al lado del ícono. */
+#google_translate_element:empty {
+  display: none;
+}
+
+/* El widget de Google trae su PROPIO estilo (texto azul, subrayado,
+   fuente distinta) que no combina con el resto de ErgoAI — se ajusta
+   lo que si se puede tocar desde afuera sin romper su funcionamiento. */
+.goog-te-gadget {
+  font-family: 'Inter', sans-serif !important;
+  font-size: 0 !important; /* esconde el texto "Powered by Google Translate" de abajo */
+  color: var(--text-primary) !important;
+}
+.goog-te-gadget .goog-te-combo {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.82rem;
+  background: transparent;
+  color: var(--text-primary);
+  border: none;
+  cursor: pointer;
+}
+.goog-te-gadget > span > a {
+  display: none !important; /* el link "Translate" que a veces agrega, redundante con el ícono 🌐 */
+}
+
+/* Arreglo: en cuanto eliges un idioma, Google agrega una barra arriba
+   de TODA la página (en un iframe) y empuja el contenido hacia abajo
+   con un estilo forzado en <body> — eso desacomodaba visualmente el
+   resto de ErgoAI (la cámara, la tarjeta de estado, todo se corría).
+   Se esconde esa barra y se cancela el corrimiento; el selector de
+   idioma (el dropdown de arriba) sigue funcionando igual de bien sin
+   ella. */
+.goog-te-banner-frame {
+  display: none !important;
+}
+body {
+  top: 0 !important;
+}
