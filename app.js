@@ -628,7 +628,12 @@
     // que la detección automática todavía no está activa.
     gotFirstPoseResult = false;
     poseWarnTimeoutId = setTimeout(() => {
-      if (!gotFirstPoseResult && cameraConnected) {
+      // Arreglo (Kesta 25): si "pose" quedó en null, es porque initPoseIfNeeded
+      // ya falló del todo (ni internet ni la copia local) y YA mostró un
+      // aviso más específico — este mensaje genérico ("no detecta tu
+      // cuerpo") es para cuando la IA SÍ cargó pero no encuentra a nadie
+      // en cuadro; no debe taparlo con uno menos claro.
+      if (!gotFirstPoseResult && cameraConnected && pose) {
         showCameraError('La cámara funciona, pero la IA todavía no detecta tu cuerpo. Asegúrate de verte de frente, con buena luz y de la cintura para arriba. Si el problema sigue, recarga la página (puede ser tu conexión a internet).');
       }
     }, 7000);
@@ -642,16 +647,20 @@
   // ahí NO hay que asustar a nadie con un error si algo sale mal,
   // porque de todos modos se vuelve a intentar cuando conectes la
   // cámara de verdad.
-  function initPoseIfNeeded(silencioso = false) {
-    if (pose) return;
-    if (typeof Pose === 'undefined') {
-      if (!silencioso) showCameraError('No se pudo cargar el motor de IA (MediaPipe). Revisa tu conexión a internet y recarga la página.');
-      return;
-    }
-    pose = new Pose({
-      locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/${file}`,
+  // Kesta 25 — "plan B" sin internet: primero intenta bajar la IA de
+  // internet (CDN, siempre la más reciente/rápida); si eso falla (sin
+  // internet, CDN caído), reintenta con la copia guardada dentro del
+  // propio proyecto (vendor/mediapipe-pose/) — la misma versión exacta,
+  // así que se comporta idéntico. Es un RESPALDO, no el plan principal:
+  // en el día a día siempre se usa la de internet primero.
+  const MEDIAPIPE_CDN_BASE = 'https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/';
+  const MEDIAPIPE_LOCAL_BASE = 'vendor/mediapipe-pose/';
+
+  function createPoseInstance(baseUrl) {
+    const p = new Pose({
+      locateFile: (file) => `${baseUrl}${file}`,
     });
-    pose.setOptions({
+    p.setOptions({
       // Arreglo (Kesta 17): modelComplexity 1 ("Full") es más preciso,
       // pero MediaPipe usa la tarjeta gráfica por dentro para esto, y en
       // una tarjeta gráfica modesta (como la de la compu del colegio)
@@ -664,31 +673,44 @@
       minDetectionConfidence: 0.5,
       minTrackingConfidence: 0.5,
     });
-    pose.onResults(onPoseResults);
+    p.onResults(onPoseResults);
+    return p;
+  }
+
+  function initPoseIfNeeded(silencioso = false) {
+    if (pose) return;
+    if (typeof Pose === 'undefined') {
+      if (!silencioso) showCameraError('No se pudo cargar el motor de IA (MediaPipe). Revisa tu conexión a internet y recarga la página.');
+      return;
+    }
 
     // Arreglo (Kesta 20): "activar cámara" se sentía pausado ~13
     // segundos porque MediaPipe descarga y prepara su modelo de IA
-    // (varios MB) recién en ese momento — construir el objeto Pose
-    // arriba NO empieza esa descarga sola, solo initialize() lo hace de
-    // verdad (confirmado revisando pose.js). Si esto se llama temprano
-    // (ver más abajo, apenas carga la página), ya está listo para
-    // cuando la persona haga clic en "Activar cámara" — el costo se
-    // paga mientras ve la pantalla de carga, no cuando ya está
-    // esperando ver su cámara.
-    if (typeof pose.initialize === 'function') {
-      // Nota: este .catch() "atrapa" el error (no lo vuelve a lanzar) a
-      // propósito — así poseInitPromise siempre queda resuelta (nunca
-      // rechazada sin que nadie la escuche), y quien la espera más abajo
-      // (startPoseProcessing) solo necesita saber que YA TERMINÓ de
-      // intentarlo, no si salió bien. pose = null es la señal real de
-      // que falló: startPoseProcessing ya revisa "if (pose)" de todos
-      // modos, y onCameraConnected() vuelve a intentar initPoseIfNeeded()
-      // (esta vez sin silencioso=true, para sí avisar si sigue fallando).
-      poseInitPromise = pose.initialize().catch(() => {
+    // (varios MB) recién en ese momento — construir el objeto Pose NO
+    // empieza esa descarga sola, solo initialize() lo hace de verdad
+    // (confirmado revisando pose.js). Si esto se llama temprano (ver
+    // más abajo, apenas carga la página), ya está listo para cuando la
+    // persona haga clic en "Activar cámara".
+    pose = createPoseInstance(MEDIAPIPE_CDN_BASE);
+    if (typeof pose.initialize !== 'function') return; // versión vieja del navegador sin este método — se deja como estaba, sin plan B
+
+    poseInitPromise = pose.initialize().catch((err) => {
+      console.warn('ErgoAI: no se pudo cargar la IA desde internet — probando la copia local de respaldo.', err);
+      // Plan B: la misma IA, pero desde los archivos guardados dentro
+      // del propio proyecto (no necesita internet para esta parte).
+      pose = createPoseInstance(MEDIAPIPE_LOCAL_BASE);
+      return pose.initialize().catch((err2) => {
+        console.warn('ErgoAI: tampoco se pudo cargar la copia local de la IA.', err2);
         pose = null;
         poseInitPromise = null;
+        if (!silencioso) showCameraError('No se pudo cargar el motor de IA (ni desde internet, ni la copia de respaldo guardada). Recarga la página e intenta de nuevo.');
       });
-    }
+    });
+    // Nota: el .catch() de arriba SIEMPRE atrapa el error final (nunca
+    // deja poseInitPromise rechazada sin que nadie la escuche) — quien
+    // la espera más abajo (startPoseProcessing) solo necesita saber que
+    // YA TERMINÓ de intentar (con éxito o no), no el resultado exacto.
+    // pose = null es la señal real de que todo falló.
   }
 
   // Le manda cuadros de video a la IA, esperando a que termine de procesar
@@ -1339,6 +1361,27 @@
       else connectHardware();
     });
   }
+
+  // Arreglo (Kesta 25) — "el buzzer nunca se apaga": si cerrabas la
+  // pestaña, la refrescabas, o navegabas a otro sitio SIN darle clic
+  // primero a "Desconectar cámara", nada le avisaba a la placa — el
+  // navegador simplemente cortaba la conexión, y el buzzer se podía
+  // quedar sonando para siempre (la placa nunca recibió la orden de
+  // apagarse, solo dejó de "escuchar"). Ahora se intenta mandar "OFF"
+  // en el último instante posible, con DOS eventos distintos por si
+  // uno no alcanza a dispararse en algún navegador ("pagehide" es el
+  // más confiable en navegadores modernos; "beforeunload" como respaldo).
+  // No se puede "esperar" (await) una escritura aquí — la página se
+  // puede cerrar antes de que termine — pero intentarlo siempre es
+  // mejor que no hacer nada, y para un comando de texto tan corto casi
+  // siempre alcanza a salir.
+  function sendFinalOffOnClose() {
+    if (hwWriter) {
+      hwWriter.write('OFF\r\n').catch(() => {});
+    }
+  }
+  window.addEventListener('pagehide', sendFinalOffOnClose);
+  window.addEventListener('beforeunload', sendFinalOffOnClose);
 
   // ============================================================
   // 9. PRECARGA TEMPRANA DE LA IA (Kesta 20)

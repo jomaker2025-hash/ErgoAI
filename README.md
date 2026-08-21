@@ -99,7 +99,8 @@ ErgoAI/
 ├── app.js                     # Lógica: IA, cámara, sesión, notificaciones, buzzer
 ├── resumen.html                # Reporte de sesión (Kesta 22) — standalone, sin cámara/IA
 ├── vendor/
-│   └── qrcode.js                  # Generador de QR (autohospedado, se carga solo al hacer falta)
+│   ├── qrcode.js                  # Generador de QR (autohospedado, se carga solo al hacer falta)
+│   └── mediapipe-pose/            # Copia local de respaldo de la IA (Kesta 25, "plan B" sin internet)
 ├── js/
 │   └── lang-loader.js             # Selector de idioma (Kesta 23) — se carga solo, después de todo
 ├── manifest.json              # Para poder "instalar" la página como app
@@ -127,7 +128,7 @@ python -m http.server 8000
 Y abre `http://localhost:8000` en tu navegador. La cámara solo funciona en `https://`
 o en `localhost` — es una regla de seguridad de los navegadores, no un error nuestro.
 
-## Rendimiento y confiabilidad (Kesta 17-20)
+## Rendimiento y confiabilidad (Kesta 17-25)
 
 El congelamiento de la computadora al activar la cámara (reportado sobre
 todo en la compu del colegio, con gráficos más modestos) llevó a dos
@@ -173,6 +174,22 @@ panel. El resumen de sesión (Kesta 21) ya cubre la parte de "ver tu
 patrón real" sin necesitar días de datos acumulados. Se quitó por
 completo: la sección del panel, el guardado diario en `localStorage`
 (`ensureToday`/`recordSample` ya no lo hacen), y todo el CSS asociado.
+
+**Kesta 25 — plan B sin internet, y el buzzer que nunca se apagaba:**
+- MediaPipe (la IA) siempre había necesitado internet para bajar su
+  modelo la primera vez en cada computadora. Ahora hay un plan B: si
+  la descarga desde internet falla, reintenta automáticamente con una
+  copia guardada dentro del propio proyecto (`vendor/mediapipe-pose/`,
+  misma versión exacta). Sigue prefiriendo internet primero (por si
+  hay una versión más nueva/rápida); el respaldo local es solo eso,
+  un respaldo. Probado a propósito bloqueando internet en una prueba
+  real — confirmado que sí cambia solo y la cámara sigue funcionando.
+- El buzzer podía quedarse sonando para siempre si cerrabas la pestaña
+  (o navegabas a otro sitio) sin darle clic antes a "Desconectar
+  cámara" — el navegador nunca le avisaba a la placa, que se queda en
+  el último estado que le dijeron (no tiene forma de "adivinar" que ya
+  nadie la está usando). Ahora se intenta mandar "OFF" en el último
+  instante con los eventos `pagehide`/`beforeunload`.
 
 ## Hardware: alerta física (requerida en la feria)
 
