@@ -1524,6 +1524,23 @@ body {
   padding: 8px;
 }
 
+/* Enlace a presentacion.html ("cómo funciona") bajo el botón de
+   cerrar el resumen — discreto a propósito, no compite con el botón
+   principal ("Entendido"). */
+.session-summary-howitworks {
+  display: block;
+  text-align: center;
+  margin-top: 14px;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+
+.session-summary-howitworks:hover {
+  color: var(--teal);
+  text-decoration: underline;
+}
+
 @media (max-width: 480px) {
   .session-summary-card {
     padding: 24px 20px;

@@ -70,6 +70,9 @@ IdeaBoard) — **requerida para la demo de la feria**: luz verde = buena postura
 - 📖 **Landing técnica** (`presentacion.html`, Kesta 27): explica cada parte de
   ErgoAI con capturas reales y el porqué de las decisiones técnicas — pensada
   para un juez o cualquiera que quiera entender el proyecto sin probarlo antes.
+  Enlazada desde el pie de la app Y desde el resumen de sesión (dentro de la
+  app y en `resumen.html`, la página a la que lleva el QR) — quien termina
+  una sesión o escanea su reporte también puede llegar a "¿cómo funciona?".
 
 ## Tecnología
 
