@@ -1,0 +1,702 @@
+<!-- ============================================================
+     ErgoAI — Cómo funciona (landing / presentación técnica)
+     ------------------------------------------------------------
+     Página COMPLETAMENTE APARTE de index.html/app.js: no toca la
+     cámara, la IA ni la placa para nada. Es solo texto + capturas de
+     pantalla reales de la app funcionando, para explicar de principio
+     a fin cómo funciona ErgoAI y por qué se construyó así — pensada
+     para que cualquiera (un juez, un visitante de la feria, otro
+     desarrollador) la lea sin necesidad de probar la app primero.
+
+     Reusa el mismo logo, colores y tipografías que el resto de ErgoAI
+     (carga style.css para las variables --bg, --teal, etc. y las
+     fuentes Sora/Inter) para que se sienta parte del mismo proyecto,
+     no una página aparte.
+     ============================================================ -->
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#05050a" />
+  <meta name="description" content="Cómo funciona ErgoAI por dentro: cámara, IA de postura, alerta física y todas las decisiones técnicas detrás — Proyecto Kesta, GHS." />
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
+  <title>ErgoAI | Cómo funciona</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <!-- Mismas variables de color/tipografía que el resto de ErgoAI -->
+  <link rel="stylesheet" href="style.css" />
+
+  <style>
+    /* ========== Estilos propios de esta página ========== */
+    body {
+      overflow-x: hidden;
+    }
+
+    .land {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 28px 24px 80px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* ---------- Barra superior ---------- */
+    .land-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 64px;
+    }
+
+    .land-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .land-brand .logo-badge {
+      width: 40px;
+      height: 40px;
+    }
+
+    .land-brand h1 {
+      font-family: 'Sora', sans-serif;
+      font-size: 1.15rem;
+    }
+
+    .land-brand h1 span {
+      background: var(--gradient-main);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    .land-brand p {
+      font-size: 0.72rem;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .land-nav-links {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .land-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 10px 18px;
+      border-radius: 999px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-decoration: none;
+      border: 1px solid var(--card-border);
+      color: var(--text-primary);
+      background: var(--bg-elevated);
+      transition: transform 0.2s var(--ease-fluid), border-color 0.2s ease;
+    }
+
+    .land-link:hover {
+      transform: translateY(-2px);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .land-link--primary {
+      background: var(--gradient-main);
+      color: #05050a;
+      border: none;
+    }
+
+    /* ---------- Hero ---------- */
+    .land-hero {
+      text-align: center;
+      margin-bottom: 88px;
+    }
+
+    .land-eyebrow {
+      display: inline-block;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: var(--text-secondary);
+      border: 1px solid var(--card-border);
+      padding: 6px 16px;
+      border-radius: 999px;
+      margin-bottom: 22px;
+    }
+
+    .land-hero h2 {
+      font-family: 'Sora', sans-serif;
+      font-weight: 800;
+      font-size: clamp(2.2rem, 5vw, 3.4rem);
+      line-height: 1.1;
+      margin-bottom: 20px;
+    }
+
+    .land-hero h2 span {
+      background: var(--gradient-main);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    .land-hero p {
+      max-width: 620px;
+      margin: 0 auto;
+      color: var(--text-secondary);
+      font-size: 1.05rem;
+      line-height: 1.65;
+    }
+
+    /* ---------- Secciones ---------- */
+    .land-section {
+      margin-bottom: 96px;
+    }
+
+    .land-section-head {
+      max-width: 640px;
+      margin: 0 auto 44px;
+      text-align: center;
+    }
+
+    .land-kicker {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--teal);
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+
+    .land-section-head h3 {
+      font-family: 'Sora', sans-serif;
+      font-size: clamp(1.5rem, 3vw, 2rem);
+      margin-bottom: 12px;
+    }
+
+    .land-section-head p {
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+
+    /* ---------- Pasos (cómo funciona) ---------- */
+    .land-step {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 40px;
+      align-items: center;
+      background: var(--bg-elevated);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-lg);
+      padding: 36px;
+      margin-bottom: 24px;
+    }
+
+    .land-step:nth-child(even) {
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .land-step:nth-child(even) .land-step-media {
+      order: 2;
+    }
+
+    .land-step-num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: var(--gradient-main);
+      color: #05050a;
+      font-family: 'Sora', sans-serif;
+      font-weight: 800;
+      font-size: 0.85rem;
+      margin-bottom: 14px;
+    }
+
+    .land-step h4 {
+      font-family: 'Sora', sans-serif;
+      font-size: 1.25rem;
+      margin-bottom: 10px;
+    }
+
+    .land-step p {
+      color: var(--text-secondary);
+      line-height: 1.65;
+      font-size: 0.94rem;
+    }
+
+    .land-step-tech {
+      margin-top: 16px;
+      padding: 14px 16px;
+      background: var(--bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-sm);
+      font-size: 0.82rem;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+
+    .land-step-tech strong {
+      color: var(--text-primary);
+    }
+
+    .land-step-media img {
+      width: 100%;
+      display: block;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--card-border);
+    }
+
+    .land-step-media-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    .land-step-media-grid figure {
+      margin: 0;
+    }
+
+    .land-step-media-grid img {
+      width: 100%;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--card-border);
+    }
+
+    .land-step-media-grid figcaption {
+      text-align: center;
+      font-size: 0.7rem;
+      color: var(--text-secondary);
+      margin-top: 6px;
+    }
+
+    /* ---------- Por qué se construyó así ---------- */
+    .land-why-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+    }
+
+    .land-why-card {
+      background: var(--bg-elevated);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-md);
+      padding: 22px 24px;
+    }
+
+    .land-why-card h4 {
+      font-family: 'Sora', sans-serif;
+      font-size: 1rem;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .land-why-card p {
+      font-size: 0.88rem;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+
+    .land-quote {
+      text-align: center;
+      font-family: 'Sora', sans-serif;
+      font-size: 1.3rem;
+      font-weight: 700;
+      padding: 28px;
+      margin-bottom: 32px;
+      border-radius: var(--radius-md);
+      background: var(--bg-elevated);
+      border: 1px solid var(--card-border);
+    }
+
+    .land-quote span {
+      background: var(--gradient-main);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    /* ---------- Resultados ---------- */
+    .land-results {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px;
+    }
+
+    .land-result-card {
+      background: var(--bg-elevated);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-md);
+      padding: 20px;
+    }
+
+    .land-result-before {
+      font-size: 0.8rem;
+      color: var(--status-bad);
+      text-decoration: line-through;
+      opacity: 0.75;
+      margin-bottom: 6px;
+    }
+
+    .land-result-after {
+      font-size: 0.92rem;
+      color: var(--status-good);
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+
+    .land-result-card p.land-result-detail {
+      font-size: 0.82rem;
+      color: var(--text-secondary);
+      line-height: 1.55;
+    }
+
+    /* ---------- Tabla de tecnología ---------- */
+    .land-table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-md);
+    }
+
+    table.land-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+    }
+
+    table.land-table th,
+    table.land-table td {
+      text-align: left;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--card-border);
+    }
+
+    table.land-table th {
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      font-size: 0.7rem;
+      letter-spacing: 0.08em;
+      background: var(--bg-elevated);
+    }
+
+    table.land-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    table.land-table td:first-child {
+      color: var(--text-primary);
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    table.land-table td {
+      color: var(--text-secondary);
+    }
+
+    /* ---------- Footer ---------- */
+    .land-footer {
+      text-align: center;
+      padding-top: 40px;
+      border-top: 1px solid var(--card-border);
+    }
+
+    .land-footer p {
+      color: var(--text-secondary);
+      font-size: 0.82rem;
+      margin-bottom: 6px;
+    }
+
+    .land-footer .land-nav-links {
+      justify-content: center;
+      margin-top: 18px;
+    }
+
+    /* ---------- Responsivo ---------- */
+    @media (max-width: 760px) {
+      .land-step,
+      .land-step:nth-child(even) {
+        grid-template-columns: 1fr;
+      }
+      .land-step:nth-child(even) .land-step-media {
+        order: 0;
+      }
+      .land-why-grid {
+        grid-template-columns: 1fr;
+      }
+      .land-step-media-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Mismas manchas de color de fondo que el resto de ErgoAI -->
+  <div class="bg-glow"></div>
+
+  <div class="land">
+
+    <!-- ======================= BARRA SUPERIOR ======================= -->
+    <nav class="land-nav">
+      <div class="land-brand">
+        <div class="logo-badge">
+          <img src="assets/logo-kesta.png" alt="Logo KESTA" class="logo-img"
+               onerror="this.classList.add('logo-img--hidden'); this.nextElementSibling.classList.add('logo-fallback--visible');" />
+          <div class="logo-fallback">K</div>
+        </div>
+        <div>
+          <h1>Ergo<span>AI</span></h1>
+          <p>by Kesta · GHS</p>
+        </div>
+      </div>
+      <div class="land-nav-links">
+        <a class="land-link" href="https://github.com/jomaker2025-hash/ErgoAI" target="_blank" rel="noopener">💻 Código en GitHub</a>
+        <a class="land-link land-link--primary" href="index.html">🧍 Probar la app en vivo</a>
+      </div>
+    </nav>
+
+    <!-- ======================= HERO ======================= -->
+    <header class="land-hero">
+      <span class="land-eyebrow">Cómo funciona ErgoAI, por dentro</span>
+      <h2>Postura buena, dudosa o mala —<br><span>detectada en tiempo real</span>, sin salir de tu navegador</h2>
+      <p>Esta página explica, con capturas reales de la app funcionando, cada pieza de ErgoAI: cómo ve tu postura, cómo decide si es buena o mala, cómo avisa con luz y sonido, y por qué tomamos cada decisión técnica que tomamos.</p>
+    </header>
+
+    <!-- ======================= EL PROBLEMA ======================= -->
+    <section class="land-section">
+      <div class="land-section-head">
+        <p class="land-kicker">El problema</p>
+        <h3>Pasar horas encorvado no es solo "verse mal"</h3>
+        <p>Encorvarte frente a una pantalla por horas tensiona la columna y el cuello, genera dolores de cabeza, reduce la concentración y, a largo plazo, puede volverse un problema postural permanente. El hábito se corrige más fácil si alguien — o algo — te avisa en el momento exacto en que empieza, no horas después cuando ya duele.</p>
+      </div>
+    </section>
+
+    <!-- ======================= CÓMO FUNCIONA: PASO A PASO ======================= -->
+    <section class="land-section">
+      <div class="land-section-head">
+        <p class="land-kicker">Cómo funciona</p>
+        <h3>De la cámara a la alerta física, paso a paso</h3>
+        <p>Todo corre dentro de tu propio navegador — nada de esto se sube a un servidor.</p>
+      </div>
+
+      <!-- Paso 1: Cámara + IA -->
+      <article class="land-step">
+        <div class="land-step-text">
+          <span class="land-step-num">1</span>
+          <h4>📷 Conecta tu cámara — y la IA la entiende al instante</h4>
+          <p>Un clic en "Activar cámara" pide permiso al navegador (<code>getUserMedia</code>) — funciona en cualquier computadora, tablet o celular, sin instalar nada ni redes especiales. De inmediato, un modelo de Inteligencia Artificial (<strong>MediaPipe Pose</strong>, de Google) ubica 33 puntos de tu cuerpo, cuadro a cuadro, completamente dentro del navegador.</p>
+          <div class="land-step-tech">
+            <strong>Detalle técnico:</strong> usamos <code>modelComplexity: 0</code> ("Lite") en vez de la versión más precisa — en computadoras con tarjeta gráfica modesta (como las del colegio), el modelo "Full" llegaba a congelar la máquina entera. La versión Lite es más liviana y sigue siendo suficiente para las 3 señales que de verdad usamos: hombros, cadera y cabeza.
+          </div>
+        </div>
+        <div class="land-step-media">
+          <img src="assets/landing/camara-conectada.png" alt="Panel de conexión de cámara de ErgoAI, con el recuadro que muestra el video en vivo y el esqueleto detectado por la IA" loading="lazy" />
+        </div>
+      </article>
+
+      <!-- Paso 2: Clasificación en 3 estados -->
+      <article class="land-step">
+        <div class="land-step-text">
+          <span class="land-step-num">2</span>
+          <h4>🚦 Se clasifica en 3 estados reales, no solo "bien/mal"</h4>
+          <p>Con la posición de hombros, cadera y cabeza, ErgoAI calcula tu postura y la clasifica en <strong>Buena</strong>, <strong>Dudosa</strong> (vas por buen camino, pero conviene corregir) o <strong>Mala</strong> (alerta activa). El estado intermedio existe a propósito: avisa antes de llegar al extremo, en vez de esperar a que ya sea un problema.</p>
+          <div class="land-step-tech">
+            <strong>Detalle técnico:</strong> en vez de medir posiciones absolutas en píxeles (inestables: cualquier ruido de la cámara las hace "bailar"), calculamos <em>proporciones</em> — por ejemplo, la distancia cabeza-hombros dividida entre el ancho de hombros — y las comparamos contra tu propia postura buena, calibrada con el botón <strong>"🎯 Calibrar mi buena postura"</strong>. Así el número no cambia si te acercas o alejas de la cámara, y es tuyo, no un promedio genérico.
+          </div>
+        </div>
+        <div class="land-step-media">
+          <div class="land-step-media-grid">
+            <figure>
+              <img src="assets/landing/estado-buena.png" alt="Tarjeta de estado mostrando Buena Postura, en verde" loading="lazy" />
+              <figcaption>Buena</figcaption>
+            </figure>
+            <figure>
+              <img src="assets/landing/estado-atencion.png" alt="Tarjeta de estado mostrando Postura Dudosa, en ámbar" loading="lazy" />
+              <figcaption>Dudosa</figcaption>
+            </figure>
+            <figure>
+              <img src="assets/landing/estado-mala.png" alt="Tarjeta de estado mostrando Mala Postura, en rojo" loading="lazy" />
+              <figcaption>Mala</figcaption>
+            </figure>
+          </div>
+        </div>
+      </article>
+
+      <!-- Paso 3: Alerta física -->
+      <article class="land-step">
+        <div class="land-step-text">
+          <span class="land-step-num">3</span>
+          <h4>🔌 La alerta también existe fuera de la pantalla</h4>
+          <p>Por cable USB, ErgoAI habla con una placa aparte (una <strong>IdeaBoard</strong> con CircuitPython) que trae un LED RGB y un buzzer: verde para buena postura, ámbar para dudosa, rojo + sonido intermitente para mala. Así la alerta no depende de que alguien esté mirando la pantalla.</p>
+          <div class="land-step-tech">
+            <strong>Detalle técnico:</strong> la comunicación usa la <strong>Web Serial API</strong> del navegador. La placa corre su propio programa (<code>code.py</code>) con lectura de cable <em>no bloqueante</em> y un "vigía" de 12 segundos: si deja de recibir señales de la página (se cerró de golpe, se apagó la compu), se apaga sola en vez de quedarse sonando para siempre. La página, a su vez, le manda un "latido" cada 4 segundos para confirmarle que sigue viva.
+          </div>
+        </div>
+        <div class="land-step-media">
+          <img src="assets/landing/placa.png" alt="Sección de conexión de la placa de alerta física, con el botón Conectar placa" loading="lazy" />
+        </div>
+      </article>
+
+      <!-- Paso 4: Sesión en vivo -->
+      <article class="land-step">
+        <div class="land-step-text">
+          <span class="land-step-num">4</span>
+          <h4>📈 Una línea de tiempo que se llena con datos reales</h4>
+          <p>Mientras la cámara está conectada, una franja de color se va llenando en vivo — cada barra son 2 segundos reales de tu sesión. No es una simulación: aunque acabes de conectarte hace un minuto (como en la mesa de la feria), lo que ves ya es información genuina.</p>
+          <div class="land-step-tech">
+            <strong>Detalle técnico:</strong> el color de cada barra viene directo de <code>classifyPosture()</code>, la misma función que decide el estado de la tarjeta grande y el comando que recibe la placa — un solo cálculo, tres formas de mostrarlo.
+          </div>
+        </div>
+        <div class="land-step-media">
+          <img src="assets/landing/sesion-vivo.png" alt="Línea de tiempo en vivo de la sesión, mostrando barras verdes acumulándose" loading="lazy" />
+        </div>
+      </article>
+
+      <!-- Paso 5: Resumen + QR -->
+      <article class="land-step">
+        <div class="land-step-text">
+          <span class="land-step-num">5</span>
+          <h4>📱 Al terminar, un resumen — y un QR para llevártelo</h4>
+          <p>Al desconectar la cámara aparece un resumen, como el de una app de reloj inteligente al terminar un ejercicio: el % real de la sesión en cada estado, y un mensaje constructivo (no alarmista) sobre qué significa ese patrón. Incluye un código QR: escanéalo con el celular y se abre un reporte aparte, listo para guardar como PDF.</p>
+          <div class="land-step-tech">
+            <strong>Detalle técnico:</strong> el QR no apunta a ningún servidor — codifica un link a <code>resumen.html</code> con los datos de la sesión directamente en la URL. Quien escanea arma el reporte en su propio navegador; no hay base de datos ni backend en todo ErgoAI.
+          </div>
+        </div>
+        <div class="land-step-media">
+          <img src="assets/landing/reporte.png" alt="Reporte de sesión con nombre, barras de porcentaje por estado y mensaje" loading="lazy" />
+        </div>
+      </article>
+
+      <!-- Paso 6: idioma -->
+      <article class="land-step">
+        <div class="land-step-text">
+          <span class="land-step-num">6</span>
+          <h4>🌐 Se explica en cualquier idioma</h4>
+          <p>El ícono 🌐 del encabezado traduce toda la página a cientos de idiomas — útil si un juez o visitante de la feria no habla español.</p>
+          <div class="land-step-tech">
+            <strong>Detalle técnico:</strong> es el widget oficial de Google Translate, cargado <em>después</em> de todo lo importante (cámara, IA, placa) y de forma que, si no hay internet o el servicio falla, simplemente desaparece sin afectar nada más de la app.
+          </div>
+        </div>
+        <div class="land-step-media">
+          <img src="assets/landing/encabezado.png" alt="Encabezado de ErgoAI con el selector de idioma abierto" loading="lazy" />
+        </div>
+      </article>
+    </section>
+
+    <!-- ======================= POR QUÉ SE CONSTRUYÓ ASÍ ======================= -->
+    <section class="land-section">
+      <div class="land-section-head">
+        <p class="land-kicker">Decisiones técnicas</p>
+        <h3>Por qué se construyó así</h3>
+      </div>
+
+      <p class="land-quote">"<span>Confiable</span> importa más que bonito"</p>
+
+      <div class="land-why-grid">
+        <div class="land-why-card">
+          <h4>🎥 Un solo acceso a la cámara</h4>
+          <p>MediaPipe trae una utilidad ("Camera") que abre su propia cámara por dentro. Usarla junto con la nuestra dejaba <strong>dos</strong> accesos abiertos al mismo dispositivo a la vez — eso era lo que hacía que la imagen se viera "bugueada" al conectar. Ahora ErgoAI manda los cuadros con su propio bucle, sobre la única cámara que ya conectó.</p>
+        </div>
+        <div class="land-why-card">
+          <h4>✋ No confía en un solo cuadro</h4>
+          <p>Si una mano tapa la cara un instante (rascarte, acomodarte el pelo), ErgoAI no cambia de estado de inmediato — mantiene el último estado bueno hasta 20 cuadros seguidos poco confiables, para no generar falsas alarmas por ruido normal de cámara.</p>
+        </div>
+        <div class="land-why-card">
+          <h4>⬅️ Detecta lo extremo de inmediato</h4>
+          <p>Echar la cabeza muy atrás — lo primero que prueba alguien que ve el prototipo por primera vez — se reconoce al instante como mala postura, en vez de ignorarse por "no ser un dato confiable" (un error real de una versión anterior).</p>
+        </div>
+        <div class="land-why-card">
+          <h4>🌐 Un plan B sin internet</h4>
+          <p>La IA necesita internet para descargar su modelo la primera vez. Si eso falla (sin señal el día de la feria), ErgoAI reintenta automáticamente con una copia guardada dentro del propio proyecto — mismo modelo, mismo comportamiento, sin depender de la red.</p>
+        </div>
+        <div class="land-why-card">
+          <h4>🔋 Un vigía para el buzzer</h4>
+          <p>Si cerrabas la pestaña de golpe, la placa se quedaba en su último estado para siempre — nadie le avisaba que ya no había nadie del otro lado. Ahora la página intenta apagarla al cerrar, Y la propia placa se apaga sola si deja de recibir noticias por más de 12 segundos.</p>
+        </div>
+        <div class="land-why-card">
+          <h4>🎨 Nada que compita por recursos</h4>
+          <p>Entre versiones anteriores del proyecto se probaron animaciones 3D y efectos visuales más elaborados — se quitaron por completo: sumados al uso normal de cámara + IA, terminaban congelando computadoras con gráficos modestos, justo el tipo de máquina que se usa en una feria escolar.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================= RESULTADOS ======================= -->
+    <section class="land-section">
+      <div class="land-section-head">
+        <p class="land-kicker">Resultados</p>
+        <h3>Problemas reales, resueltos con evidencia</h3>
+        <p>Cada arreglo se hizo después de reproducir el problema y confirmar la causa — no por prueba y error.</p>
+      </div>
+      <div class="land-results">
+        <div class="land-result-card">
+          <p class="land-result-before">✗ ~13 segundos de espera al activar la cámara</p>
+          <p class="land-result-after">✓ Carga anticipada, en segundo plano</p>
+          <p class="land-result-detail">El modelo de IA se empieza a descargar en cuanto abres la página, no cuando activas la cámara.</p>
+        </div>
+        <div class="land-result-card">
+          <p class="land-result-before">✗ El buzzer se quedaba sonando para siempre</p>
+          <p class="land-result-after">✓ Se apaga solo, con o sin la página abierta</p>
+          <p class="land-result-detail">Lectura no bloqueante en la placa + vigía de 12s + latido de la página cada 4s.</p>
+        </div>
+        <div class="land-result-card">
+          <p class="land-result-before">✗ Se congelaba la compu al activar la cámara</p>
+          <p class="land-result-after">✓ Estable en equipos con gráficos modestos</p>
+          <p class="land-result-detail">Modelo de IA más liviano + se quitaron todas las animaciones/efectos decorativos pesados.</p>
+        </div>
+        <div class="land-result-card">
+          <p class="land-result-before">✗ Postura extrema (irse muy atrás) no se detectaba</p>
+          <p class="land-result-after">✓ Se clasifica como mala postura al instante</p>
+          <p class="land-result-detail">Se separó "dato poco confiable" de "postura físicamente imposible" — son cosas distintas.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================= TECNOLOGÍA ======================= -->
+    <section class="land-section">
+      <div class="land-section-head">
+        <p class="land-kicker">Bajo el capó</p>
+        <h3>Tecnología usada</h3>
+      </div>
+      <div class="land-table-wrap">
+        <table class="land-table">
+          <thead>
+            <tr><th>Parte</th><th>Tecnología</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Interfaz</td><td>HTML, CSS y JavaScript puro — sin frameworks, sin paso de compilación</td></tr>
+            <tr><td>Detección de postura</td><td>MediaPipe Pose (Google), corriendo completo en el navegador, con bucle propio de envío de cuadros</td></tr>
+            <tr><td>Cámara</td><td><code>getUserMedia</code> — la cámara del propio dispositivo, cualquiera que sea</td></tr>
+            <tr><td>Alerta física</td><td>IdeaBoard (CircuitPython) por USB, vía Web Serial API</td></tr>
+            <tr><td>Reporte con QR</td><td>Generador de QR autohospedado, sin servidor — todo en la URL</td></tr>
+            <tr><td>Traducción</td><td>Widget oficial de Google Translate, cargado de último</td></tr>
+            <tr><td>Guardado</td><td><code>localStorage</code> del navegador — sin base de datos</td></tr>
+            <tr><td>Hosting</td><td>GitHub Pages</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ======================= FOOTER ======================= -->
+    <footer class="land-footer">
+      <p>ErgoAI — Proyecto de feria científica, Equipo Kesta, GHS.</p>
+      <p>Ningún video, foto ni dato de postura sale nunca de tu navegador.</p>
+      <div class="land-nav-links">
+        <a class="land-link" href="https://github.com/jomaker2025-hash/ErgoAI" target="_blank" rel="noopener">💻 Código en GitHub</a>
+        <a class="land-link land-link--primary" href="index.html">🧍 Probar la app en vivo</a>
+      </div>
+    </footer>
+
+  </div>
+</body>
+</html>

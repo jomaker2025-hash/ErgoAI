@@ -5,6 +5,7 @@
 Proyecto de la feria científica — Equipo **Kesta**, GHS.
 
 🔗 **Demo en vivo:** https://jomaker2025-hash.github.io/ErgoAI/
+📖 **Cómo funciona (landing técnica, con capturas):** https://jomaker2025-hash.github.io/ErgoAI/presentacion.html
 
 ---
 
@@ -66,6 +67,9 @@ IdeaBoard) — **requerida para la demo de la feria**: luz verde = buena postura
 - 📖 **Sección educativa**: qué problemas causa la mala postura y cómo ayuda cada
   función de ErgoAI.
 - 📱 Diseño responsivo — funciona en computadora, tablet y celular.
+- 📖 **Landing técnica** (`presentacion.html`, Kesta 27): explica cada parte de
+  ErgoAI con capturas reales y el porqué de las decisiones técnicas — pensada
+  para un juez o cualquiera que quiera entender el proyecto sin probarlo antes.
 
 ## Tecnología
 
@@ -98,6 +102,7 @@ ErgoAI/
 ├── style.css                  # Todo el diseño visual
 ├── app.js                     # Lógica: IA, cámara, sesión, notificaciones, buzzer
 ├── resumen.html                # Reporte de sesión (Kesta 22) — standalone, sin cámara/IA
+├── presentacion.html          # Landing técnica "cómo funciona" (Kesta 27) — standalone
 ├── vendor/
 │   ├── qrcode.js                  # Generador de QR (autohospedado, se carga solo al hacer falta)
 │   └── mediapipe-pose/            # Copia local de respaldo de la IA (Kesta 25, "plan B" sin internet)
