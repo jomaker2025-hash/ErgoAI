@@ -545,6 +545,25 @@ body {
   margin-bottom: -2px;
 }
 
+/* Gancho hacia presentacion.html (Kesta 27): aparece justo debajo del
+   recuadro donde te ves a ti mismo con el esqueleto encima — el
+   momento de más curiosidad natural sobre "cómo hace esto la IA". */
+.pose-preview-hook {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--teal);
+  text-decoration: none;
+  margin-top: 2px;
+}
+
+.pose-preview-hook:hover {
+  text-decoration: underline;
+}
+
+.footer-hook-link {
+  color: var(--teal);
+}
+
 .pose-preview {
   width: 280px;
   height: 210px;
