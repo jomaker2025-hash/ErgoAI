@@ -177,6 +177,20 @@
     syncHardwareState(state); // respaldo cada segundo — el cambio real ya se manda al confirmarse
     recordSessionPoint(state);
 
+    // Arreglo (Kesta 26): la línea de arriba (syncHardwareState) NO
+    // reenvía nada si el estado sigue igual al último que se mandó —
+    // eso es bueno para no saturar el cable, pero significa que la
+    // placa puede quedarse mucho rato sin recibir NADA durante una
+    // postura sostenida. Cada HW_HEARTBEAT_SECONDS, se le reenvía el
+    // mismo comando A LA FUERZA — un "sigo aquí" para su vigía interno.
+    if (hwWriter) {
+      secondsSinceHwHeartbeat += 1;
+      if (secondsSinceHwHeartbeat >= HW_HEARTBEAT_SECONDS) {
+        secondsSinceHwHeartbeat = 0;
+        sendHwCommand(hwCommandForState(state), true);
+      }
+    }
+
     // Contadores de TODA la conexión actual (aparte de la ventana de 3
     // minutos de recordSessionPoint) — lo que usa el resumen al
     // desconectar (Kesta 21).
@@ -443,6 +457,7 @@
     consecutiveUnreliableFrames = 0;
     badPostureSeconds = 0;
     secondsSinceLastAlert = 0;
+    secondsSinceHwHeartbeat = 0;
     calibrating = false;
     calibrateBtn.disabled = false;
     sessionSamples = [];
@@ -1247,6 +1262,14 @@
   let hwWriter = null;
   let hwWritableClosed = null;
   let lastHwCommand = null;
+  // Arreglo (Kesta 26): cada cuántos segundos se le "recuerda" a la
+  // placa el estado actual aunque no haya cambiado — la placa usa este
+  // latido para saber que la página sigue conectada (ver
+  // WATCHDOG_SEGUNDOS en el firmware) y apagarse sola si deja de
+  // llegarle, en vez de quedarse sonando para siempre si el navegador
+  // se cierra de golpe.
+  const HW_HEARTBEAT_SECONDS = 4;
+  let secondsSinceHwHeartbeat = 0;
 
   if (!HW_SUPPORTED && hwConnectBtn) {
     hwConnectBtn.disabled = true;
@@ -1273,8 +1296,13 @@
   // conexión se ve sana (no hay error, no se desconecta) pero la placa
   // nunca llega a procesar nada. Por eso el LED/buzzer no reaccionaban
   // desde la página web aunque la tarjeta en pantalla sí cambiaba bien.
-  function sendHwCommand(cmd) {
-    if (!hwWriter || cmd === lastHwCommand) return;
+  // Arreglo (Kesta 26): "forzar" salta el filtro de "ya te había mandado
+  // esto mismo" — hace falta para el latido de más abajo, que le avisa
+  // a la placa "sigo aquí" cada pocos segundos aunque el estado no haya
+  // cambiado (la placa lo usa para saber que no se quedó sola — ver
+  // WATCHDOG_SEGUNDOS en hardware/ideaboard_buzzer/code.py).
+  function sendHwCommand(cmd, forzar = false) {
+    if (!hwWriter || (!forzar && cmd === lastHwCommand)) return;
     lastHwCommand = cmd;
     hwWriter.write(cmd + '\r\n').catch(() => {
       // Lo más probable es que se desconectó el cable a medio camino

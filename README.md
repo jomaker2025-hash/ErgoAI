@@ -191,6 +191,36 @@ completo: la sección del panel, el guardado diario en `localStorage`
   nadie la está usando). Ahora se intenta mandar "OFF" en el último
   instante con los eventos `pagehide`/`beforeunload`.
 
+**Kesta 26 — el buzzer se quedaba "pegado" sonando/parpadeando raro:**
+- Causa más profunda que el arreglo de Kesta 25 (que solo cubre el
+  caso de cerrar la pestaña con calma). El programa de la placa
+  (`code.py`) usaba `input()` para leer cada comando, y esa función
+  se queda **bloqueada** esperando una línea nueva — mientras espera,
+  nada más del programa corre, ni siquiera el parpadeo del buzzer. Y
+  como la página evita a propósito reenviar el mismo comando seguido
+  (para no saturar el cable), la placa podía pasar mucho rato sin
+  recibir nada mientras la postura seguía mala, dejando el buzzer
+  congelado en vez de parpadeando.
+- Arreglado en dos partes que trabajan juntas:
+  1. **En la placa:** ahora revisa primero si ya llegó algo por el
+     cable (`supervisor.runtime.serial_bytes_available`) antes de
+     intentar leer — si no hay nada nuevo, sigue de largo al
+     parpadeo en vez de quedarse esperando. Además, si pasan más de
+     12 segundos sin recibir NADA (se cerró de golpe, se apagó la
+     compu, se desconectó el cable...), la placa se apaga sola.
+  2. **En la página:** cada 4 segundos, aunque el estado de postura
+     no haya cambiado, se reenvía el comando actual como "latido"
+     para que la placa sepa que la página sigue viva y no active su
+     apagado automático. Verificado con una placa simulada que en
+     11 segundos llegan exactamente los 3 comandos esperados (1
+     inicial + 2 latidos).
+- **Importante:** este arreglo vive en `code.py`, que corre dentro de
+  la placa — no se actualiza solo al subir cambios a GitHub Pages.
+  Hay que copiar el archivo nuevo a la unidad `CIRCUITPY` de la
+  IdeaBoard y probarlo con hardware real (no se puede probar el
+  comportamiento real de la placa desde aquí, solo se verificó que
+  el código no tiene errores de sintaxis).
+
 ## Hardware: alerta física (requerida en la feria)
 
 `hardware/ideaboard_buzzer/code.py` es el programa que corre **dentro de la placa**
