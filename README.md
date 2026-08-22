@@ -221,6 +221,24 @@ completo: la sección del panel, el guardado diario en `localStorage`
   comportamiento real de la placa desde aquí, solo se verificó que
   el código no tiene errores de sintaxis).
 
+**Kesta 27 — mejoras para la mesa de la feria:**
+- El botón "Vista previa" (buena/dudosa/mala postura, ya existía desde
+  antes) ya no se esconde en modo presentación — así, antes de que
+  alguien real se pare frente a la cámara, se puede mostrar en la
+  pantalla grande cómo se ve cada estado. Sigue escondiéndose solo en
+  cuanto conecta una cámara real, como siempre.
+- El recuadro que ya dibujaba el video + esqueleto detectado
+  (`#poseCanvas`, alimentado por `drawPreview` en `app.js`) ahora tiene
+  un título y una explicación corta ("🎥 Así ve nuestro sistema tu
+  postura") y es más grande — para que un visitante de la feria
+  entienda de un vistazo qué está viendo. Es la misma caja de siempre,
+  solo mejor presentada.
+- Se quitaron dos textos que ya no hacían falta en pantalla: la
+  insignia "Requerida en la feria" junto al título de la placa, y el
+  aviso de privacidad largo bajo el botón de cámara (el dato de que el
+  video nunca sale del navegador se puede explicar de palabra durante
+  la presentación).
+
 ## Hardware: alerta física (requerida en la feria)
 
 `hardware/ideaboard_buzzer/code.py` es el programa que corre **dentro de la placa**

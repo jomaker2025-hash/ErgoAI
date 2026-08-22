@@ -425,22 +425,6 @@ body {
   color: var(--text-secondary);
 }
 
-/* Aviso de privacidad: mismo lenguaje visual que un badge de "estado
-   bueno" (verde, ícono + texto) — a propósito, para que se lea como
-   una garantía tranquilizadora, no como una advertencia. */
-.privacy-note {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 8px;
-  font-size: 0.74rem;
-  color: var(--status-good);
-  background: var(--status-good-bg);
-  border: 1px solid rgba(12, 163, 12, 0.25);
-  padding: 6px 12px;
-  border-radius: 999px;
-}
-
 .camera-source-panel {
   width: 100%;
 }
@@ -456,22 +440,6 @@ body {
   align-items: center;
   flex-wrap: wrap;
   gap: 14px;
-}
-
-/* Insignia "Requerida en la feria" junto al título de la placa */
-.required-badge {
-  display: inline-block;
-  vertical-align: middle;
-  margin-left: 8px;
-  font-size: 0.62rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--status-attention);
-  background: var(--status-attention-bg);
-  border: 1px solid rgba(250, 178, 25, 0.35);
-  padding: 3px 9px;
-  border-radius: 999px;
 }
 
 .btn-connect:disabled {
@@ -562,9 +530,24 @@ body {
   text-decoration: underline;
 }
 
+/* Arreglo (Kesta 27): caja "cómo funciona nuestro sistema" — el mismo
+   recuadro de siempre, ahora con título y explicación arriba, y un
+   poco más grande para que se vea bien en la mesa de la feria. */
+.pose-preview-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+}
+
+.pose-preview-title {
+  margin-bottom: -2px;
+}
+
 .pose-preview {
-  width: 120px;
-  height: 90px;
+  width: 280px;
+  height: 210px;
   border-radius: 12px;
   border: 1px solid var(--card-border);
   background: #000;
@@ -1046,12 +1029,18 @@ body {
    11b. MODO PRESENTACIÓN (para mostrarle el proyecto a los jueces)
    ============================================================ */
 .presentation-mode .camera-setup,
-.presentation-mode .demo-toggle,
 .presentation-mode .footer,
 .presentation-mode .settings-wrap,
 .presentation-mode #presentationBtn {
   display: none !important;
 }
+
+/* Arreglo (Kesta 27): el botón de vista previa (buena/dudosa/mala
+   postura) YA NO se esconde en modo presentación — antes de que alguien
+   real se pare frente a la cámara en la feria, sirve para mostrar en la
+   pantalla grande cómo se ve cada estado. Se sigue escondiendo solo
+   apenas conecta una cámara real (setCameraPillState en app.js), en
+   modo presentación o no. */
 
 .presentation-mode .app {
   max-width: 1400px;

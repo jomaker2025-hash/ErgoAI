@@ -114,7 +114,6 @@
       <div class="camera-setup-text">
         <p class="camera-setup-title">Conecta tu cámara para detectar tu postura</p>
         <p class="camera-setup-sub">Funciona con la cámara de cualquier computadora, tablet o celular — no necesitas instalar nada ni estar en ninguna red especial.</p>
-        <p class="privacy-note">🔒 Tu video se analiza en el momento, dentro de tu propio navegador — nunca se sube, guarda ni envía a ningún servidor. Ni nosotros ni nadie más lo puede ver.</p>
       </div>
 
       <!-- Nombre opcional: solo para personalizar el saludo y el resumen
@@ -129,7 +128,16 @@
         <button type="button" class="btn-connect" id="webcamConnectBtn">Activar cámara</button>
       </div>
 
-      <canvas class="pose-preview" id="poseCanvas" width="320" height="240" hidden></canvas>
+      <!-- "Cómo funciona nuestro sistema": el mismo canvas que ya dibujaba
+           el video + esqueleto (drawPreview en app.js), ahora con
+           título/explicación para que un visitante de la feria entienda
+           de un vistazo qué está viendo. app.js sigue mostrando/ocultando
+           esto junto con #poseCanvas (ver onCameraConnected/disconnectCamera). -->
+      <div class="pose-preview-wrap" id="poseCanvasWrap" hidden>
+        <p class="camera-setup-title pose-preview-title">🎥 Así ve nuestro sistema tu postura</p>
+        <p class="camera-setup-sub">La IA ubica hombros, cadera y cabeza en tiempo real para calcular tu postura — esta imagen nunca sale de tu navegador.</p>
+        <canvas class="pose-preview" id="poseCanvas" width="320" height="240"></canvas>
+      </div>
 
       <!-- Calibración: para que la IA aprenda TU postura buena, en vez de
            adivinar con un número genérico -->
@@ -146,7 +154,7 @@
          Placa aparte (IdeaBoard: buzzer + luz LED) conectada por cable USB. -->
     <section class="camera-setup hardware-setup" id="hardwareSetup">
       <div class="camera-setup-text">
-        <p class="camera-setup-title">🔌 Placa de alerta física <span class="required-badge">Requerida en la feria</span></p>
+        <p class="camera-setup-title">🔌 Placa de alerta física</p>
         <p class="camera-setup-sub">Conecta por cable USB la IdeaBoard: luz verde = buena postura, luz ámbar = postura dudosa, luz roja + buzzer = mala postura. Disponible en Chrome o Edge de computadora.</p>
       </div>
       <div class="hardware-controls">
@@ -235,7 +243,7 @@
 
     <footer class="footer">
       <p>ErgoAI © 2026 — Proyecto Kesta GHS</p>
-      <p class="version-tag">Kesta 26 · el buzzer ya no se queda pegado sonando</p>
+      <p class="version-tag">Kesta 27 · vista previa en modo presentación, así ve tu postura</p>
     </footer>
   </div>
 

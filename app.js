@@ -45,6 +45,7 @@
   const cameraError = document.getElementById('cameraError');
   const poseCanvas = document.getElementById('poseCanvas');
   const poseCtx = poseCanvas.getContext('2d');
+  const poseCanvasWrap = document.getElementById('poseCanvasWrap'); // caja "cómo funciona" (Kesta 27) que envuelve poseCanvas
   const changeIpBtn = document.getElementById('changeIpBtn');
   const calibrateRow = document.getElementById('calibrateRow');
   const calibrateBtn = document.getElementById('calibrateBtn');
@@ -431,6 +432,7 @@
     setCameraPillState(false);
     cameraSetup.classList.remove('is-connected');
     poseCanvas.hidden = true;
+    if (poseCanvasWrap) poseCanvasWrap.hidden = true;
     changeIpBtn.hidden = true;
     calibrateRow.hidden = true;
 
@@ -604,6 +606,7 @@
     setCameraPillState(true);
     cameraSetup.classList.add('is-connected');
     poseCanvas.hidden = false;
+    if (poseCanvasWrap) poseCanvasWrap.hidden = false;
     changeIpBtn.hidden = false;
     calibrateRow.hidden = false;
     sessionModule.hidden = false;
